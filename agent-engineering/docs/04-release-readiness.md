@@ -41,6 +41,12 @@ Gateway in the Vercel project. Do not commit `.env` files.
 
 ## Pre-release Commands
 
+GitHub Actions:
+
+```text
+.github/workflows/release-gate.yml
+```
+
 Frontend:
 
 ```powershell
@@ -90,3 +96,4 @@ Manual browser smoke:
 - `workbench-preview` is an unauthenticated local/demo page for visual and
   release smoke tests. The real chat route still uses auth and persistence.
 - For a school pilot, add a human review process before broad student rollout.
+- Deployment details live in `agent-engineering/docs/06-deployment-playbook.md`.

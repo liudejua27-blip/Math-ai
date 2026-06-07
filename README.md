@@ -66,6 +66,13 @@ python -m unittest discover -s tests
 
 - `agent-engineering/docs/04-release-readiness.md`
 - `agent-engineering/docs/05-education-safety-policy.md`
+- `agent-engineering/docs/06-deployment-playbook.md`
+
+GitHub Actions 发布门禁：
+
+```text
+.github/workflows/release-gate.yml
+```
 
 生产环境严格校验：
 

@@ -1,0 +1,64 @@
+name: Math-SEARAG Release Gate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  frontend-release-gate:
+    name: Frontend release gate
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: agent-engineering/frontend
+    env:
+      AUTH_SECRET: math-searag-ci-auth-secret
+      MATH_PYTHON_VERIFIER_ENABLED: "false"
+      MATH_REQUIRE_PYTHON_VERIFIER: "false"
+      MATH_AGENT_BACKEND_URL: http://127.0.0.1:8008
+      MATH_DIAGNOSIS_MODEL: deepseek/deepseek-v4-flash
+      MATH_REVIEW_MODEL: deepseek/deepseek-v4-pro
+      MATH_TEACHING_STYLE: socratic
+      MATH_VISUAL_MODE: html_card
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: agent-engineering/frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run release gate
+        run: pnpm run test:release
+
+  python-verifier-regression:
+    name: Python verifier regression
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: math-own
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run verifier tests
+        run: python -m unittest discover -s tests
