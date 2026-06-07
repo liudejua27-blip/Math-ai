@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js / build output
+.next/
+out/
+build/
+dist/
+.turbo/
+coverage/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+.vercel/
+
+# Logs and reports
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+test-results/
+playwright-report/
+blob-report/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# TypeScript / local cache
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Generated evaluation output
+agent-engineering/frontend/lib/evaluation/evaluation-result.json
+
+# Open-source reference clones.
+# Keep audit docs in git, but do not vendor full third-party repositories.
+opensource-bases/deepseek-gui/
+opensource-bases/qwen-agent/
+opensource-bases/vercel-ai-chatbot/
+opensource-bases/education-agent-candidates/*/
+!opensource-bases/education-agent-candidates/README.md

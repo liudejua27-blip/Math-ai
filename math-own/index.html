@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>高考数学私人思维教练</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="产品导航">
+        <a class="brand" href="#diagnosis" aria-label="高考数学私人思维教练">
+          <span class="brand-mark">∑</span>
+          <span>
+            <strong>思维教练</strong>
+            <small>Math-SEARAG</small>
+          </span>
+        </a>
+
+        <nav class="side-nav" aria-label="页面分区">
+          <a class="active" href="#diagnosis" data-nav="diagnosis">诊断工作台</a>
+          <a href="#recognition" data-nav="recognition">试卷识别</a>
+          <a href="#thinking" data-nav="thinking">思路判断</a>
+          <a href="#solution-card" data-nav="solution-card">解题图片</a>
+          <a href="#knowledge" data-nav="knowledge">知识错因</a>
+          <a href="#radar" data-nav="radar">错因雷达</a>
+          <a href="#profile" data-nav="profile">思维档案</a>
+        </nav>
+
+        <div class="side-summary">
+          <p class="summary-label">学生最强链路</p>
+          <strong>识别 → 判断 → 订正</strong>
+          <span>试卷识别、思路识别、严格判断、步骤图片、知识点与错因闭环。</span>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">学生端 · 高中数学严格诊断</p>
+            <h1>高考数学私人思维教练</h1>
+          </div>
+          <div class="topbar-actions" aria-label="系统状态">
+            <span class="status-pill good"><span></span>证据链优先</span>
+            <span class="status-pill warn"><span></span>低置信度需确认</span>
+            <span class="status-pill backend-offline" id="backendStatus"><span></span>后端待连接</span>
+            <button class="icon-button" type="button" id="exportReport" title="生成诊断报告" aria-label="生成诊断报告">⇩</button>
+          </div>
+        </header>
+
+        <section id="diagnosis" class="workspace-section" aria-labelledby="diagnosis-title">
+          <div class="section-heading compact">
+            <div>
+              <p class="eyebrow">核心闭环</p>
+              <h2 id="diagnosis-title">上传错题 → 确认证据 → 定位错误 → 生成变式</h2>
+            </div>
+            <div class="metric-strip" aria-label="样例指标">
+              <span><strong id="localizationMetric">82%</strong>定位置信</span>
+              <span><strong id="evidenceMetric">100%</strong>证据引用</span>
+              <span><strong id="verifyMetric">4/5</strong>验证通过</span>
+            </div>
+          </div>
+
+          <div class="compute-strip" id="computeStrip" aria-label="后端计算管线"></div>
+
+          <div class="workbench-grid">
+            <section class="tool-panel input-panel" aria-labelledby="input-title">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">输入层</p>
+                  <h3 id="input-title">错题与学生步骤</h3>
+                </div>
+                <span class="mini-status" id="confirmStatus">待确认</span>
+              </div>
+
+              <label class="upload-zone" for="problemFile">
+                <span class="upload-symbol">＋</span>
+                <span>
+                  <strong>上传题目图片或 PDF</strong>
+                  <small id="fileName">当前使用导数题演示样本</small>
+                </span>
+              </label>
+              <input id="problemFile" class="visually-hidden" type="file" accept="image/*,.pdf">
+
+              <div class="math-sheet" id="problemSheet" aria-label="题目预览">
+                <div class="sheet-topline">
+                  <span>导数函数题</span>
+                  <span>Problem #D-017</span>
+                </div>
+                <p>已知函数 f(x)=xlnx-ax 在区间 (0,+∞) 上有极值，求参数 a 的取值范围，并讨论最小值。</p>
+                <div class="formula-row">f'(x)=lnx+1-a</div>
+                <div class="formula-row muted">低置信度：区间端点、参数范围、极值条件</div>
+              </div>
+
+              <div class="confirm-list" aria-label="低置信度字段确认">
+                <button class="confirm-chip" type="button" data-confirmed="false">C1 区间 (0,+∞)</button>
+                <button class="confirm-chip" type="button" data-confirmed="false">F1 f'(x)=lnx+1-a</button>
+                <button class="confirm-chip" type="button" data-confirmed="false">C2 极值存在</button>
+                <button class="confirm-chip" type="button" data-confirmed="false">S2 端点比较</button>
+              </div>
+
+              <label class="field-label" for="studentSteps">学生解题步骤</label>
+              <textarea id="studentSteps" rows="7">1. 令 f'(x)=lnx+1-a=0，得到 x=e^(a-1)。
+2. 所以函数一定有极小值，直接代入求最小值。
+3. 最小值为 e^(a-1)(a-1)-a e^(a-1)。</textarea>
+
+              <div class="action-row">
+                <button class="primary-button" type="button" id="analyzeBtn">开始诊断</button>
+                <button class="icon-button" type="button" id="resetBtn" title="恢复演示样本" aria-label="恢复演示样本">↻</button>
+              </div>
+            </section>
+
+            <section class="tool-panel align-panel" aria-labelledby="align-title">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">诊断层</p>
+                  <h3 id="align-title">学生步骤 vs 正确路径</h3>
+                </div>
+                <div class="confidence-meter" aria-label="置信度">
+                  <span id="confidenceValue">0.78</span>
+                  <div><i id="confidenceBar"></i></div>
+                </div>
+              </div>
+              <div class="alignment-list" id="alignmentList"></div>
+            </section>
+
+            <aside class="tool-panel evidence-panel" aria-labelledby="evidence-title">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">证据与验证</p>
+                  <h3 id="evidence-title">MPES 证据链</h3>
+                </div>
+                <span class="mini-status passed">可追溯</span>
+              </div>
+
+              <div class="evidence-stack" id="evidenceStack"></div>
+
+              <div class="diagnosis-result">
+                <p class="panel-kicker">首个错误步骤</p>
+                <strong id="firstErrorTitle">S2：跳过定义域与端点比较</strong>
+                <span id="firstErrorDetail">错因原子 A07 · 定义域意识弱，A14 · 端点比较遗漏。</span>
+              </div>
+
+              <div class="strict-gate" id="strictGate" aria-label="严格门禁结果">
+                <div class="gate-head">
+                  <p class="panel-kicker">严格门禁</p>
+                  <strong id="strictGateTitle">等待诊断</strong>
+                </div>
+                <div class="gate-list" id="strictGateList"></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="radar" class="content-section" aria-labelledby="radar-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">错因雷达</p>
+              <h2 id="radar-title">把“不会”拆成可训练的数学能力原子</h2>
+            </div>
+            <button class="secondary-button" type="button" id="refreshRadar">刷新雷达</button>
+          </div>
+          <div class="two-column-grid">
+            <section class="tool-panel" aria-label="错因雷达图">
+              <canvas id="radarCanvas" width="680" height="440" aria-label="错因雷达图"></canvas>
+              <div class="atom-list" id="atomList"></div>
+            </section>
+            <section class="tool-panel" aria-labelledby="variant-title">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">变式训练</p>
+                  <h3 id="variant-title">3 道同原子题</h3>
+                </div>
+                <span class="mini-status" id="variantStatus">0/3 完成</span>
+              </div>
+              <div class="variant-list" id="variantList"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="profile" class="content-section" aria-labelledby="profile-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">长期闭环</p>
+              <h2 id="profile-title">个人数学思维档案</h2>
+            </div>
+            <span class="status-pill good"><span></span>本周复盘有效</span>
+          </div>
+
+          <div class="profile-grid">
+            <section class="tool-panel profile-panel" aria-labelledby="mastery-title">
+              <h3 id="mastery-title">能力原子掌握度</h3>
+              <div class="mastery-list" id="masteryList"></div>
+            </section>
+            <section class="tool-panel" aria-labelledby="trend-title">
+              <h3 id="trend-title">错因复发趋势</h3>
+              <canvas id="trendCanvas" width="620" height="300" aria-label="错因复发趋势"></canvas>
+            </section>
+            <section class="tool-panel note-panel" aria-labelledby="review-title">
+              <p class="panel-kicker">学生复盘摘要</p>
+              <h3 id="review-title">本周定义域相关错误减少</h3>
+              <p>你在导数题中已经能主动写出定义域，但遇到参数分类时仍容易省略端点比较。本周用短题保持手感，不额外加题。</p>
+            </section>
+          </div>
+        </section>
+
+        <section id="recognition" class="content-section" aria-labelledby="recognition-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">第一步</p>
+              <h2 id="recognition-title">试卷识别：先把题目、条件和目标读准</h2>
+            </div>
+          </div>
+
+          <div class="student-chain-grid">
+            <section class="tool-panel student-chain-card" id="paperRecognition" aria-label="试卷识别结果"></section>
+            <section class="tool-panel student-chain-card" id="thoughtRecognition" aria-label="解题思路识别结果"></section>
+          </div>
+        </section>
+
+        <section id="thinking" class="content-section" aria-labelledby="thinking-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">第二步</p>
+              <h2 id="thinking-title">解题思路识别、判断和更优路径</h2>
+            </div>
+          </div>
+
+          <div class="student-chain-grid">
+            <section class="tool-panel student-chain-card" id="thoughtJudgement" aria-label="思路判断结果"></section>
+            <section class="tool-panel student-chain-card" id="betterApproach" aria-label="更好的解题思路"></section>
+          </div>
+        </section>
+
+        <section id="solution-card" class="content-section" aria-labelledby="solution-card-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">第三步</p>
+              <h2 id="solution-card-title">生成可保存的详细解题步骤图片</h2>
+            </div>
+            <div class="action-row">
+              <button class="secondary-button" type="button" id="renderSolutionImage">重新生成</button>
+              <button class="primary-button" type="button" id="downloadSolutionImage">下载图片</button>
+            </div>
+          </div>
+
+          <div class="solution-grid">
+            <section class="tool-panel solution-canvas-panel" aria-label="解题步骤图片预览">
+              <canvas id="solutionCanvas" width="1100" height="1500" aria-label="详细解题步骤图片"></canvas>
+            </section>
+            <section class="tool-panel checklist-panel" aria-labelledby="daily-title">
+              <h3 id="daily-title">今日订正动作</h3>
+              <ul id="dailyPlanList"></ul>
+              <h3>提示阶梯</h3>
+              <ul id="hintLadderList"></ul>
+            </section>
+          </div>
+        </section>
+
+        <section id="knowledge" class="content-section" aria-labelledby="knowledge-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">第四步</p>
+              <h2 id="knowledge-title">识别知识点、错因和复发风险</h2>
+            </div>
+          </div>
+          <div class="knowledge-grid">
+            <section class="tool-panel">
+              <h3>知识点</h3>
+              <div class="knowledge-list" id="knowledgeList"></div>
+            </section>
+            <section class="tool-panel">
+              <h3>错因</h3>
+              <div class="knowledge-list" id="errorCauseList"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="drawer-backdrop" id="reportBackdrop" hidden></div>
+    <aside class="report-drawer" id="reportDrawer" aria-hidden="true" aria-labelledby="reportTitle">
+      <header>
+        <div>
+          <p class="panel-kicker">诊断报告</p>
+          <h2 id="reportTitle">单题报告尚未生成</h2>
+        </div>
+        <button class="icon-button" type="button" id="closeReport" title="关闭报告" aria-label="关闭报告">×</button>
+      </header>
+      <div class="report-body" id="reportBody">
+        <p>点击“开始诊断”后，报告会汇总首个错误步骤、错因原子、验证结果和下一步训练建议。</p>
+      </div>
+    </aside>
+    <script src="assets/app.js"></script>
+  </body>
+</html>
