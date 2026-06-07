@@ -49,6 +49,13 @@ corepack pnpm install
 corepack pnpm run test:release
 ```
 
+Production environment gate:
+
+```powershell
+cd agent-engineering/frontend
+corepack pnpm run release:env:strict
+```
+
 Python verifier:
 
 ```powershell
@@ -73,6 +80,8 @@ Manual browser smoke:
 - Python verifier unavailable: show `not_checked`, never pretend pass.
 - Geometry scene specs must reject arbitrary executable fields.
 - Student data and secrets must stay outside the repository.
+- Follow `agent-engineering/docs/05-education-safety-policy.md` before any real
+  student pilot.
 
 ## Publishing Notes
 
@@ -81,4 +90,3 @@ Manual browser smoke:
 - `workbench-preview` is an unauthenticated local/demo page for visual and
   release smoke tests. The real chat route still uses auth and persistence.
 - For a school pilot, add a human review process before broad student rollout.
-
