@@ -12,6 +12,7 @@ export type MathDiagnosisRequest = {
   problemText: string;
   studentSteps: string;
   studentId?: string;
+  chatId?: string;
   confirmedEvidence?: string[];
   teachingStyle?: TeachingStyle;
   visualMode?: VisualMode;

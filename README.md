@@ -67,6 +67,14 @@ python -m unittest discover -s tests
 - `agent-engineering/docs/04-release-readiness.md`
 - `agent-engineering/docs/05-education-safety-policy.md`
 - `agent-engineering/docs/06-deployment-playbook.md`
+- `agent-engineering/docs/07-mvp-kpi-and-30-day-plan.md`
+
+当前最高优先级：
+
+```text
+把 DeepSeek 式三栏工作台从预览页变成正式主产品页，
+并把已落地的诊断会话、Workbench Events、AtomMemory 和变式记录展示到真实用户历史与学习画像中。
+```
 
 GitHub Actions 发布门禁：
 

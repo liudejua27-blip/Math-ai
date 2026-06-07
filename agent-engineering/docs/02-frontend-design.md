@@ -1,72 +1,174 @@
-# 前端改造方案
+# 前端产品设计：DeepSeek 式三栏学习工作台
 
-## 基座
+## 设计原则
 
-前端从 `vercel/ai-chatbot` 改造成 `Math-SEARAG Learning Agent` 工作台，保留 Next.js App Router、AI SDK v6、AI Elements、shadcn/ui、artifact 和聊天持久化结构。
+学生端不能只是普通 ChatGPT 聊天框。Math-SEARAG 的前端必须让学生、家长和老师一眼看出：
 
-## 产品形态
+- 它理解学生步骤，而不是只生成答案
+- 它能解释 AI 为什么这样判断
+- 它能持续记录错因和训练计划
+- 它能用图上讲解解决几何理解问题
 
-学生端首页不应只是聊天框，而应逐步升级为学习工作台：
+因此正式形态固定为 DeepSeek GUI 式深度学习工作台。
 
-```text
-今日任务：
-1. 订正昨天的 A07 定义域意识弱
-2. 完成 2 道同因变式
-3. Geometry Lab：线面角投影训练
-```
-
-## 页面规划
-
-| 页面 | 作用 |
-| --- | --- |
-| Chat / Diagnosis | 输入题目和学生步骤，完成首错诊断和追问 |
-| Diagnosis Detail | 左题目步骤，中第一断点追问，右证据链/图谱，底部订正卡/变式 |
-| Visual Evidence Confirmation | 确认低置信度公式、几何关系、图形对象 |
-| Learner Profile | 错因复发率、同因迁移率、自我修正率、本周训练计划 |
-| Geometry Lab | 正方体/三棱锥等空间几何关卡 |
-| Teacher Dashboard | 班级错因热力图、题型薄弱点、训练布置 |
-
-## 视觉风格
-
-方向：安静、理性、面向高三学生的学习工作台。
-
-- 深色优先但不使用紫色 AI 渐变。
-- 用青绿、琥珀、红色分别表示证据、待确认、首错。
-- 保留紧凑聊天区，旁路扩展为证据链、严格门禁、错因原子、订正卡。
-- 数学公式必须走 KaTeX/Streamdown/AI Elements 渲染。
-
-## 前端工具调用策略
-
-用户给出题目和步骤时，前端 agent 必须优先调用：
+## 三栏结构
 
 ```text
-diagnoseMathThinking(problemText, studentSteps, confirmedEvidence)
+┌───────────────────────┬─────────────────────────────┬──────────────────────────┐
+│ 左侧：学生学习画像      │ 中间：AI 数学私教主学习区     │ 右侧：Agent Inspector     │
+├───────────────────────┼─────────────────────────────┼──────────────────────────┤
+│ 今日任务               │ 题目输入 / 拍照上传            │ 第一错步                  │
+│ 最近错因               │ 学生步骤输入                  │ 错因原子                  │
+│ 薄弱专题               │ 苏格拉底追问                  │ 严格门禁                  │
+│ 复发错因               │ HTML 订正卡                   │ VerifierTrace             │
+│ 本周训练计划            │ 同因变式训练                  │ 学习画像变化              │
+│ Geometry Lab 推荐       │ 几何图上讲解 / 3D 实验入口     │ 下一步训练计划            │
+└───────────────────────┴─────────────────────────────┴──────────────────────────┘
 ```
 
-返回后由 `SocraticPolicyEngine` 决定展示顺序：
+左侧回答“我是谁、我哪里弱、今天练什么”。中间回答“我正在解决这道题”。右侧回答“AI 为什么这么判断”。
 
-1. 如果无步骤：请求学生步骤。
-2. 如果证据低置信：请求确认。
-3. 如果有第一断点：先追问，不给完整答案。
-4. 如果通过追问修正：展示订正卡。
-5. 如果错因稳定：生成同因变式。
-6. 如果几何错因明显：推荐 Geometry Lab。
+## 正式页面升级目标
 
-## 新增组件方向
+当前 `/workbench-preview` 用于验证布局。下一步要升级为正式可用学习页。
+
+必须完成：
+
+1. 接通正式 auth / guest auth / database。
+2. 把 `/workbench-preview` 的布局迁入正式学习入口。
+3. 保留右侧 Agent Inspector。
+4. 每次诊断生成 `workbenchEvents`。
+5. 每次诊断保存到用户历史。
+6. 每次错因进入 LearnerMemory。
+7. 移动端改为“主画布 + 底部 Inspector 抽屉”。
+
+完成后，产品才从工程 demo 变成可试用 MVP。
+
+## 学生端主流程
 
 ```text
-components/learner-memory/
-  learner-profile-page.tsx
-  atom-memory-panel.tsx
-  topic-memory-panel.tsx
-  weekly-plan-panel.tsx
-
-components/visual-evidence/
-  visual-evidence-confirmation.tsx
-  formula-token-confirmation.tsx
-
-components/diagnosis/
-  verifier-trace-panel.tsx
-  socratic-policy-panel.tsx
-  remediation-loop-panel.tsx
+学生输入题目和步骤
+→ Agent 判断是否有步骤
+→ 无步骤：要求学生先写思路，不直接讲答案
+→ 有步骤：定位第一断点
+→ 给出错因原子
+→ 严格门禁验证
+→ 生成苏格拉底追问
+→ 生成 HTML 订正卡
+→ 生成同因变式
+→ 更新 LearnerMemory
+→ 下一次优先练复发错因
 ```
+
+## 右侧 Agent Inspector
+
+Inspector 是产品专业感的核心，不是调试面板。
+
+面板拆分：
+
+- 第一错步
+- 错因原子
+- 严格门禁
+- VerifierTrace
+- Evidence Chain
+- SocraticPolicy
+- LearnerMemory Delta
+- RemediationPlan
+- Geometry Lab Recommendation
+- Workbench Event Timeline
+
+功能要求：
+
+- 可折叠
+- 可复制
+- 可导出
+- 移动端进入底部抽屉
+- 低置信和人工复核状态必须显眼
+
+## 爆款体验场景
+
+首个传播场景：
+
+```text
+上传自己写错的解题过程
+→ AI 不直接讲答案
+→ 立刻指出：你真正从第 2 步开始错
+→ 高亮那一步
+→ 告诉你这不是粗心，而是“定义域意识弱 / 分类讨论缺失 / 二面角转化错误”
+→ 给你一个 30 秒能看懂的图解订正卡
+→ 再给 1 道同因变式
+→ 做对后显示“这个错因今天已修复一次”
+```
+
+这个体验比拍照搜答案更有传播力，因为它让学生感觉“它真的看懂了我的思路”。
+
+## Geometry Lab 前端路线
+
+P0：
+
+- 继续使用现有 SVG/HTML 场景验证任务链
+- 保持 `GeometrySceneSpec` 白名单协议
+- 禁止 `script/code/javascript`
+- 每个任务必须绑定 `correctRefs` 和 `evidenceIds`
+
+P1：
+
+- 加入可旋转 3D 视角
+- 支持正方体、长方体、三棱锥、四棱锥、圆锥、圆柱
+
+P2：
+
+- 支持“学生错在哪里”的图上高亮
+- 覆盖线面角、二面角、垂线、辅助面、截面理解错误
+
+P3：
+
+- 加入 GSAP 步骤动画
+- 高亮题目条件、辅助线、最佳观察视角、错误思路、正确转化
+
+## 产品版本
+
+### MVP 免费版
+
+- 每天 3 次思维诊断
+- 基础错因原子
+- 基础订正卡
+- 基础变式题
+- Geometry Lab 体验关卡
+
+### Pro 订阅版
+
+- 无限诊断
+- 长期错因画像
+- 每周思维报告
+- 高考专题训练
+- 错因复发提醒
+- 同因变式训练
+- Geometry Lab 完整版
+
+### 教师版
+
+- 班级错因热力图
+- 学生分层报告
+- 自动生成分层作业
+- 典型错因讲评课件
+- 校本题库接入
+
+### 学校版
+
+- 年级数据看板
+- 教研分析
+- 题库/试卷系统接入
+- 校内私有知识库
+- 数据权限和审计
+
+## 页面优先级
+
+| 优先级 | 页面 | 目标 |
+| --- | --- | --- |
+| P0 | 正式学习工作台 | 真实输入题目和步骤，得到完整诊断 |
+| P0 | 诊断历史 | 保存每次 MathDiagnosisResult 和订正卡 |
+| P0 | 学生画像 | 展示高频错因、复发错因、训练计划 |
+| P1 | Geometry Lab | 图上讲解几何错因 |
+| P1 | 周报 | 给学生和家长展示思维变化 |
+| P2 | 教师看板 | 班级错因热力图和分层作业 |

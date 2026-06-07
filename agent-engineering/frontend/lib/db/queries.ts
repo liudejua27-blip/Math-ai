@@ -16,25 +16,37 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import type { ArtifactKind } from "@/components/chat/artifact";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
+import type { MathDiagnosisResult } from "../ai/math-diagnosis-types";
+import { buildWorkbenchEventsFromDiagnosis } from "../ai/workbench-events";
 import { ChatbotError } from "../errors";
 import { generateUUID } from "../utils";
 import {
+  atomMemory,
   type Chat,
   chat,
+  diagnosisSession,
   type DBMessage,
   document,
   message,
+  remediationRecord,
   type Suggestion,
   stream,
   suggestion,
+  studentProfile,
   type User,
   user,
   vote,
+  weeklyLearningReport,
+  workbenchEvent,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
 
 const client = postgres(process.env.POSTGRES_URL ?? "");
 const db = drizzle(client);
+
+function databaseConfigured() {
+  return Boolean(process.env.POSTGRES_URL?.trim());
+}
 
 export async function getUser(email: string): Promise<User[]> {
   try {
@@ -627,6 +639,223 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatbotError(
       "bad_request:database",
       "Failed to get stream ids by chat id"
+    );
+  }
+}
+
+export async function saveMathDiagnosisSession({
+  userId,
+  chatId,
+  problemText,
+  studentSteps,
+  result,
+}: {
+  userId: string;
+  chatId?: string | null;
+  problemText: string;
+  studentSteps: string;
+  result: MathDiagnosisResult;
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const profile = await getOrCreateStudentProfile(userId);
+    const [session] = await db
+      .insert(diagnosisSession)
+      .values({
+        userId,
+        chatId: chatId ?? null,
+        sourceJobId: result.jobId,
+        problemText,
+        studentSteps,
+        resultJson: result,
+        firstWrongStep: result.firstWrongStep,
+        confidence: result.confidence,
+        needHumanReview: result.needHumanReview,
+      })
+      .returning();
+
+    const events = buildWorkbenchEventsFromDiagnosis(result);
+    if (events.length > 0) {
+      await db.insert(workbenchEvent).values(
+        events.map((item) => ({
+          diagnosisSessionId: session.id,
+          eventType: item.type,
+          payloadJson: item,
+        }))
+      );
+    }
+
+    for (const atom of result.misconceptionAtoms) {
+      await upsertAtomMemory({
+        studentProfileId: profile.id,
+        atomId: atom.id,
+        atomLabel: atom.label,
+        mastery:
+          result.learnerMemoryDelta?.atomUpdates.find(
+            (item) => item.atomId === atom.id
+          )?.mastery ?? "weak",
+        transferRate:
+          result.learnerMemoryDelta?.atomUpdates.find(
+            (item) => item.atomId === atom.id
+          )?.transferRate ?? 0,
+      });
+    }
+
+    if (result.remediationPlan?.items.length) {
+      await db.insert(remediationRecord).values(
+        result.remediationPlan.items.map((item) => ({
+          diagnosisSessionId: session.id,
+          studentProfileId: profile.id,
+          variantLevel: item.level,
+          variantText: item.prompt,
+          atomIds: [item.atomId],
+          transferSuccess: false,
+        }))
+      );
+    }
+
+    await db
+      .update(studentProfile)
+      .set({
+        weeklyState: result.needHumanReview ? "needs_review" : "active",
+        masterySummary: {
+          lastDiagnosisJobId: result.jobId,
+          firstWrongStep: result.firstWrongStep,
+          confidence: result.confidence,
+          updatedAtoms:
+            result.learnerMemoryDelta?.summary.updatedAtoms ??
+            result.misconceptionAtoms.map((atom) => atom.id),
+          weakAtoms: result.learnerMemoryDelta?.summary.weakAtoms ?? [],
+          recommendedPlan:
+            result.learnerMemoryDelta?.summary.recommendedPlan ?? [],
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(studentProfile.id, profile.id));
+
+    return { sessionId: session.id, studentProfileId: profile.id };
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to save math diagnosis session"
+    );
+  }
+}
+
+export async function getOrCreateStudentProfile(userId: string) {
+  const [existing] = await db
+    .select()
+    .from(studentProfile)
+    .where(eq(studentProfile.userId, userId))
+    .limit(1);
+
+  if (existing) {
+    return existing;
+  }
+
+  const [created] = await db
+    .insert(studentProfile)
+    .values({ userId })
+    .returning();
+
+  return created;
+}
+
+export async function upsertAtomMemory({
+  studentProfileId,
+  atomId,
+  atomLabel,
+  mastery,
+  transferRate,
+}: {
+  studentProfileId: string;
+  atomId: string;
+  atomLabel: string;
+  mastery: string;
+  transferRate: number;
+}) {
+  const [existing] = await db
+    .select()
+    .from(atomMemory)
+    .where(
+      and(
+        eq(atomMemory.studentProfileId, studentProfileId),
+        eq(atomMemory.atomId, atomId)
+      )
+    )
+    .limit(1);
+
+  if (existing) {
+    const [updated] = await db
+      .update(atomMemory)
+      .set({
+        atomLabel,
+        recurrenceCount: existing.recurrenceCount + 1,
+        lastSeenAt: new Date(),
+        mastery,
+        transferRate,
+        status: mastery === "stable" ? "stable" : "active",
+        updatedAt: new Date(),
+      })
+      .where(eq(atomMemory.id, existing.id))
+      .returning();
+    return updated;
+  }
+
+  const [created] = await db
+    .insert(atomMemory)
+    .values({
+      studentProfileId,
+      atomId,
+      atomLabel,
+      recurrenceCount: 1,
+      mastery,
+      transferRate,
+      status: mastery === "stable" ? "stable" : "active",
+    })
+    .returning();
+
+  return created;
+}
+
+export async function getLatestStudentProfileSummary(userId: string) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [profile] = await db
+      .select()
+      .from(studentProfile)
+      .where(eq(studentProfile.userId, userId))
+      .limit(1);
+
+    if (!profile) {
+      return null;
+    }
+
+    const atoms = await db
+      .select()
+      .from(atomMemory)
+      .where(eq(atomMemory.studentProfileId, profile.id))
+      .orderBy(desc(atomMemory.updatedAt))
+      .limit(12);
+
+    const [weeklyReport] = await db
+      .select()
+      .from(weeklyLearningReport)
+      .where(eq(weeklyLearningReport.studentProfileId, profile.id))
+      .orderBy(desc(weeklyLearningReport.weekStart))
+      .limit(1);
+
+    return { profile, atoms, weeklyReport };
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get latest student profile summary"
     );
   }
 }

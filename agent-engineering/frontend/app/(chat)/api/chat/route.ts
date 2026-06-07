@@ -21,7 +21,7 @@ import {
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
-import { diagnoseMathThinking } from "@/lib/ai/tools/diagnose-math-thinking";
+import { createDiagnoseMathThinkingTool } from "@/lib/ai/tools/diagnose-math-thinking";
 import { editDocument } from "@/lib/ai/tools/edit-document";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
@@ -215,7 +215,10 @@ export async function POST(request: Request) {
             }),
           },
           tools: {
-            diagnoseMathThinking,
+            diagnoseMathThinking: createDiagnoseMathThinkingTool({
+              studentId: session.user.id,
+              chatId: id,
+            }),
             createDocument: createDocument({
               session,
               dataStream,

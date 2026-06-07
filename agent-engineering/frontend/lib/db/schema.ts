@@ -2,9 +2,11 @@ import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
+  integer,
   json,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
   uuid,
@@ -134,3 +136,100 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+export const studentProfile = pgTable("StudentProfile", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  grade: varchar("grade", { length: 32 }),
+  targetExam: varchar("targetExam", { length: 64 }),
+  weeklyState: varchar("weeklyState", { length: 64 }).notNull().default("new"),
+  masterySummary: json("masterySummary").notNull().default({}),
+  privacyLevel: varchar("privacyLevel", { length: 32 }).notNull().default("pilot"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type StudentProfile = InferSelectModel<typeof studentProfile>;
+
+export const diagnosisSession = pgTable("DiagnosisSession", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  chatId: uuid("chatId").references(() => chat.id),
+  sourceJobId: text("sourceJobId").notNull(),
+  problemText: text("problemText").notNull(),
+  studentSteps: text("studentSteps").notNull(),
+  resultJson: json("resultJson").notNull(),
+  firstWrongStep: text("firstWrongStep"),
+  confidence: real("confidence").notNull().default(0),
+  needHumanReview: boolean("needHumanReview").notNull().default(false),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type DiagnosisSession = InferSelectModel<typeof diagnosisSession>;
+
+export const workbenchEvent = pgTable("WorkbenchEvent", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  diagnosisSessionId: uuid("diagnosisSessionId")
+    .notNull()
+    .references(() => diagnosisSession.id),
+  eventType: varchar("eventType", { length: 64 }).notNull(),
+  payloadJson: json("payloadJson").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type DBWorkbenchEvent = InferSelectModel<typeof workbenchEvent>;
+
+export const atomMemory = pgTable("AtomMemory", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  studentProfileId: uuid("studentProfileId")
+    .notNull()
+    .references(() => studentProfile.id),
+  atomId: varchar("atomId", { length: 64 }).notNull(),
+  atomLabel: text("atomLabel").notNull(),
+  recurrenceCount: integer("recurrenceCount").notNull().default(0),
+  lastSeenAt: timestamp("lastSeenAt").notNull().defaultNow(),
+  mastery: varchar("mastery", { length: 32 }).notNull().default("weak"),
+  transferRate: real("transferRate").notNull().default(0),
+  status: varchar("status", { length: 32 }).notNull().default("active"),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type AtomMemoryRecord = InferSelectModel<typeof atomMemory>;
+
+export const remediationRecord = pgTable("RemediationRecord", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  diagnosisSessionId: uuid("diagnosisSessionId")
+    .notNull()
+    .references(() => diagnosisSession.id),
+  studentProfileId: uuid("studentProfileId")
+    .notNull()
+    .references(() => studentProfile.id),
+  variantLevel: integer("variantLevel").notNull(),
+  variantText: text("variantText").notNull(),
+  result: varchar("result", { length: 32 }).notNull().default("planned"),
+  atomIds: json("atomIds").notNull().default([]),
+  transferSuccess: boolean("transferSuccess").notNull().default(false),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type RemediationRecord = InferSelectModel<typeof remediationRecord>;
+
+export const weeklyLearningReport = pgTable("WeeklyLearningReport", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  studentProfileId: uuid("studentProfileId")
+    .notNull()
+    .references(() => studentProfile.id),
+  weekStart: timestamp("weekStart").notNull(),
+  summaryJson: json("summaryJson").notNull().default({}),
+  topRecurringAtomsJson: json("topRecurringAtomsJson").notNull().default([]),
+  recommendedPlanJson: json("recommendedPlanJson").notNull().default([]),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type WeeklyLearningReport = InferSelectModel<
+  typeof weeklyLearningReport
+>;

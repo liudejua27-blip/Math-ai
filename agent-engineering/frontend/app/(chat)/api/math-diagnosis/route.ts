@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/app/(auth)/auth";
 import {
   mathDiagnosisRequestSchema,
   runMathDiagnosisWorkflow,
@@ -21,7 +22,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await runMathDiagnosisWorkflow(parsed.data);
+  const session = await auth().catch(() => null);
+  const result = await runMathDiagnosisWorkflow({
+    ...parsed.data,
+    studentId: parsed.data.studentId ?? session?.user?.id,
+  });
   return NextResponse.json(result);
 }
-

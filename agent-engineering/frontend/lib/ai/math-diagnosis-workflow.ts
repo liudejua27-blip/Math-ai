@@ -19,6 +19,7 @@ export const mathDiagnosisRequestSchema = z.object({
   teachingStyle: z.literal("socratic").default("socratic"),
   visualMode: z.literal("html_card").default("html_card"),
   studentId: z.string().trim().optional(),
+  chatId: z.string().trim().optional(),
   attemptContext: z
     .object({
       consecutiveFailures: z.number().int().nonnegative().optional(),
@@ -95,8 +96,7 @@ export async function runMathDiagnosisWorkflow(
       })
     : undefined;
   const thinkingGraph = buildThinkingGraph(result, input.problemText);
-
-  return {
+  const completedResult = {
     ...result,
     socraticQuestions,
     policyDecision,
@@ -112,6 +112,45 @@ export async function runMathDiagnosisWorkflow(
       thinkingGraph,
     }),
   };
+
+  if (input.studentId) {
+    await persistMathDiagnosisSession({
+      userId: input.studentId,
+      chatId: input.chatId,
+      problemText: input.problemText,
+      studentSteps: input.studentSteps,
+      result: completedResult,
+    });
+  }
+
+  return completedResult;
+}
+
+async function persistMathDiagnosisSession({
+  userId,
+  chatId,
+  problemText,
+  studentSteps,
+  result,
+}: {
+  userId: string;
+  chatId?: string;
+  problemText: string;
+  studentSteps: string;
+  result: MathDiagnosisResult;
+}) {
+  const { saveMathDiagnosisSession } = await import("../db/queries");
+  try {
+    await saveMathDiagnosisSession({
+      userId,
+      chatId,
+      problemText,
+      studentSteps,
+      result,
+    });
+  } catch (error) {
+    console.warn("Failed to persist math diagnosis session", error);
+  }
 }
 
 function normalizeInput(request: MathDiagnosisRequest): NormalizedInput {
