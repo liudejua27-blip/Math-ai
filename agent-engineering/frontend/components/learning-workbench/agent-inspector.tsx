@@ -15,6 +15,7 @@ import {
   MisconceptionAtomsPanel,
   PolicyPanel,
   RemediationPlanPanel,
+  StepAlignmentDetailsPanel,
   StrictChecksPanel,
   VerifierTracePanel,
 } from "./math-diagnosis-panels";
@@ -166,6 +167,7 @@ function InspectorContent({ result }: { result: MathDiagnosisToolResult | null }
     <div className="grid gap-4">
       <StatusSummary result={result} />
       <FirstWrongStepPanel result={result} />
+      <StepAlignmentDetailsPanel result={result} />
       <PolicyPanel policy={result.policyDecision} />
       <MisconceptionAtomsPanel result={result} />
       <StrictChecksPanel result={result} />

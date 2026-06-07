@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import {
+  buildLearnerMemoryGuidance,
+  applyLearnerMemoryToRemediationPlan,
+} from "./diagnosis-enhancement-engine";
+import {
   computeRecurrenceRate,
   computeTransferRate,
   inferStrategyMemory,
@@ -65,5 +69,56 @@ assert.equal(updateMastery({ recurrenceRate30d: 0.2, transferRate: 0.8 }), "impr
 const strategy = inferStrategyMemory(["A07", "A08"]);
 assert.equal(strategy.tendsToSkipDomainCheck, true);
 assert.equal(strategy.tendsToAvoidClassification, true);
+
+const guidance = buildLearnerMemoryGuidance({
+  learnerMemoryDelta: {
+    studentId: "stu_1",
+    atomUpdates: [{ ...next, mastery: "weak", transferRate: 0.2 }],
+    topicUpdate: {
+      topicId: "derivative",
+      problemCount: 1,
+      correctCount: 0,
+      commonAtoms: ["A07"],
+      currentLevel: "basic",
+    },
+    strategyUpdate: strategy,
+    summary: {
+      updatedAtoms: ["A07"],
+      weakAtoms: ["A07"],
+      improvingAtoms: [],
+      recommendedPlan: [],
+    },
+  },
+  atoms: [
+    {
+      id: "A07",
+      label: "定义域意识弱",
+      level: "foundation",
+      description: "先检查定义域。",
+    },
+  ],
+});
+assert.equal(guidance?.canShowFullSolution, false);
+assert.equal(guidance?.variantLevel, 1);
+
+const memoryDrivenPlan = applyLearnerMemoryToRemediationPlan({
+  plan: {
+    sourceAtoms: ["A07"],
+    nextStep: "practice_variants",
+    masteryImpact: "medium",
+    items: [
+      {
+        atomId: "A07",
+        atomLabel: "定义域意识弱",
+        level: 3,
+        title: "迁移变式",
+        prompt: "迁移到复合函数定义域。",
+        purpose: "验证迁移。",
+      },
+    ],
+  },
+  guidance,
+});
+assert.equal(memoryDrivenPlan.items[0].level, 1);
 
 console.log("learner-memory-engine tests passed");

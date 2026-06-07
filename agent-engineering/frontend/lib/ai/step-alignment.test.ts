@@ -14,6 +14,8 @@ async function main() {
   if (!("error" in derivativeFormula)) {
     assert.equal(derivativeFormula.firstWrongStep, "S1");
     assert.match(derivativeFormula.firstWrongReason ?? "", /step-alignment/);
+    assert.ok(derivativeFormula.stepAlignmentDetails?.length);
+    assert.ok(derivativeFormula.claimTraces?.some((claim) => claim.stepId === "S1"));
   }
 
   const quadratic = await runMathDiagnosisWorkflow({
@@ -25,6 +27,13 @@ async function main() {
   assert.ok(!("error" in quadratic));
   if (!("error" in quadratic)) {
     assert.equal(quadratic.firstWrongStep, "S1");
+    assert.ok(
+      quadratic.claimTraces?.some(
+        (claim) =>
+          claim.claimType === "classification" ||
+          claim.claimType === "condition_omission"
+      )
+    );
   }
 
   const geometry = await runMathDiagnosisWorkflow({
@@ -37,6 +46,11 @@ async function main() {
   assert.ok(!("error" in geometry));
   if (!("error" in geometry)) {
     assert.equal(geometry.firstWrongStep, "S2");
+    assert.ok(
+      geometry.claimTraces?.some(
+        (claim) => claim.claimType === "geometry_vector_method_mismatch"
+      )
+    );
   }
 
   console.log("step-alignment tests passed");

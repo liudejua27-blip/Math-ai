@@ -1,4 +1,5 @@
 import type { MathDiagnosisRequest, MathDiagnosisResult } from "./math-diagnosis-types";
+import type { LearnerMemoryGuidance } from "./math-diagnosis-types";
 
 export type SocraticMode =
   | "request_steps"
@@ -46,6 +47,7 @@ export type SocraticPolicyDecision = {
   reason: string;
   targetAtoms?: string[];
   recommendedAction?: string;
+  memoryGuidance?: LearnerMemoryGuidance;
 };
 
 const NO_ANSWER_POLICY = {

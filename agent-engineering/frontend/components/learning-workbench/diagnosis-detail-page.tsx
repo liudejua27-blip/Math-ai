@@ -9,6 +9,7 @@ import {
   MisconceptionAtomsPanel,
   PolicyPanel,
   RemediationPlanPanel,
+  StepAlignmentDetailsPanel,
   StrictChecksPanel,
   VerifierTracePanel,
 } from "./math-diagnosis-panels";
@@ -65,6 +66,7 @@ export function DiagnosisDetailPage({
 
           <aside className="grid content-start gap-4">
             <FirstWrongStepPanel result={result} />
+            <StepAlignmentDetailsPanel result={result} />
             <PolicyPanel policy={result.policyDecision} />
             <MisconceptionAtomsPanel result={result} />
             <StrictChecksPanel result={result} />

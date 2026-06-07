@@ -103,6 +103,58 @@ export function MisconceptionAtomsPanel({
   );
 }
 
+export function StepAlignmentDetailsPanel({
+  result,
+}: {
+  result: MathDiagnosisResult;
+}) {
+  if (!result.stepAlignmentDetails?.length) {
+    return null;
+  }
+
+  return (
+    <InfoBlock title="Step Alignment">
+      <div className="grid gap-2">
+        {result.stepAlignmentDetails.slice(0, 4).map((step) => (
+          <div
+            className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
+            key={step.stepId}
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium">{step.stepId}</span>
+              <StatusBadge status={step.status} />
+              {step.expression && (
+                <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+                  {step.expression}
+                </span>
+              )}
+            </div>
+            <div className="mt-1 text-muted-foreground leading-6">
+              {step.sentence}
+            </div>
+            <div className="mt-2 grid gap-1.5">
+              {step.claims.slice(0, 3).map((claim) => (
+                <div
+                  className="rounded-md bg-muted/45 px-2 py-1.5 text-xs leading-5"
+                  key={claim.id}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{claim.claimType}</span>
+                    <StatusBadge status={claim.status} />
+                  </div>
+                  <div className="mt-1 text-muted-foreground">
+                    {claim.reason}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </InfoBlock>
+  );
+}
+
 export function StrictChecksPanel({
   result,
   failedOnly = false,
@@ -361,4 +413,3 @@ export function InfoBlock({
     </div>
   );
 }
-

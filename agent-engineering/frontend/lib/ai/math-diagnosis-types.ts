@@ -45,6 +45,56 @@ export type HtmlMathCardSpec = {
   >;
 };
 
+export type ClaimTrace = {
+  id: string;
+  stepId: string;
+  sentence: string;
+  expression: string | null;
+  claimType:
+    | "equivalence_transform"
+    | "condition_omission"
+    | "domain"
+    | "classification"
+    | "monotonicity_extremum"
+    | "derivative_geometric_meaning"
+    | "sequence_recursion_induction"
+    | "conic_condition_transform"
+    | "trig_identity_transform"
+    | "probability_reading"
+    | "geometry_vector_method_mismatch"
+    | "geometry_relation"
+    | "proof_step";
+  status: "pass" | "fail" | "warn" | "not_checked";
+  atomIds: string[];
+  strictCheckIds: string[];
+  reason: string;
+  confidence: number;
+};
+
+export type StepAlignmentDetail = {
+  stepId: string;
+  sentence: string;
+  expression: string | null;
+  status: "pass" | "fail" | "warn" | "not_checked";
+  firstErrorClaimId: string | null;
+  claims: ClaimTrace[];
+};
+
+export type LearnerMemoryGuidance = {
+  nextProblemRecommendation: string;
+  questionDifficulty: "micro" | "standard" | "transfer" | "challenge";
+  explanationStyle:
+    | "micro_scaffold"
+    | "socratic_standard"
+    | "visual_first"
+    | "variant_first";
+  variantLevel: 1 | 2 | 3 | 4;
+  canShowFullSolution: boolean;
+  shouldTriggerReviewPlan: boolean;
+  targetAtoms: string[];
+  reason: string;
+};
+
 export type MathThinkingGraphSpec = {
   type: "math_thinking_graph";
   title: string;
@@ -96,7 +146,10 @@ export type MathDiagnosisResult = {
   socraticQuestions: string[];
   policyDecision: SocraticPolicyDecision;
   verifierTraces: VerifierTrace[];
+  stepAlignmentDetails?: StepAlignmentDetail[];
+  claimTraces?: ClaimTrace[];
   learnerMemoryDelta?: LearnerMemoryDelta;
+  learnerMemoryGuidance?: LearnerMemoryGuidance;
   remediationPlan?: RemediationPlan;
   thinkingGraph: MathThinkingGraphSpec;
   correctionCard: HtmlMathCardSpec;

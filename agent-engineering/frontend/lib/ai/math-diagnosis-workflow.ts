@@ -11,6 +11,14 @@ import { buildRemediationPlan } from "./remediation-loop-engine";
 import { runTypeScriptMathDiagnosis } from "./math-rules-engine";
 import { decideSocraticPolicy } from "./socratic-policy-engine";
 import { buildVerifierTraces } from "./verifier-trace-engine";
+import {
+  applyLearnerMemoryToPolicy,
+  applyLearnerMemoryToRemediationPlan,
+  buildClaimVerifierTraces,
+  buildLearnerMemoryGuidance,
+  buildStepAlignmentDetails,
+  expandMisconceptionAtoms,
+} from "./diagnosis-enhancement-engine";
 
 export const mathDiagnosisRequestSchema = z.object({
   problemText: z.string().trim().min(1).max(8000),
@@ -66,13 +74,31 @@ export async function runMathDiagnosisWorkflow(
   }
 
   const rawDiagnosis = runTypeScriptMathDiagnosis(input, pythonVerifierResult);
-  const result = mapBackendResult(rawDiagnosis);
-  const socraticQuestions = buildSocraticQuestions(result);
-  const verifierTraces = buildVerifierTraces({
-    strictChecks: result.strictChecks,
-    pythonVerifier: pythonVerifierResult,
+  let result = mapBackendResult(rawDiagnosis);
+  const stepAlignment = buildStepAlignmentDetails({
+    request: input,
+    diagnosis: result,
+    rawDiagnosis,
   });
-  const policyDecision = decideSocraticPolicy({
+  result = {
+    ...result,
+    misconceptionAtoms: expandMisconceptionAtoms({
+      request: input,
+      diagnosis: result,
+      claimTraces: stepAlignment.claims,
+    }),
+    stepAlignmentDetails: stepAlignment.details,
+    claimTraces: stepAlignment.claims,
+  };
+  const socraticQuestions = buildSocraticQuestions(result);
+  const verifierTraces = [
+    ...buildVerifierTraces({
+      strictChecks: result.strictChecks,
+      pythonVerifier: pythonVerifierResult,
+    }),
+    ...buildClaimVerifierTraces(stepAlignment.claims),
+  ];
+  const basePolicyDecision = decideSocraticPolicy({
     problemText: input.problemText,
     studentSteps: input.studentSteps,
     diagnosis: result,
@@ -80,7 +106,7 @@ export async function runMathDiagnosisWorkflow(
     hasLowConfidenceEvidence: hasLowConfidenceEvidence(result),
     attemptContext: input.attemptContext,
   });
-  const remediationPlan = buildRemediationPlan({
+  const baseRemediationPlan = buildRemediationPlan({
     misconceptionAtoms: result.misconceptionAtoms,
     variants: result.variants,
     recommendedGeometryLabs: result.recommendedGeometryLabs,
@@ -91,10 +117,22 @@ export async function runMathDiagnosisWorkflow(
         problemId: result.jobId,
         topicId: rawDiagnosis.topic?.id,
         atoms: result.misconceptionAtoms,
-        remediationPlan,
+        remediationPlan: baseRemediationPlan,
         correctionCompleted: Boolean(input.attemptContext?.correctionCompleted),
       })
     : undefined;
+  const learnerMemoryGuidance = buildLearnerMemoryGuidance({
+    learnerMemoryDelta,
+    atoms: result.misconceptionAtoms,
+  });
+  const remediationPlan = applyLearnerMemoryToRemediationPlan({
+    plan: baseRemediationPlan,
+    guidance: learnerMemoryGuidance,
+  });
+  const policyDecision = applyLearnerMemoryToPolicy({
+    policy: basePolicyDecision,
+    guidance: learnerMemoryGuidance,
+  });
   const thinkingGraph = buildThinkingGraph(result, input.problemText);
   const completedResult = {
     ...result,
@@ -102,6 +140,7 @@ export async function runMathDiagnosisWorkflow(
     policyDecision,
     verifierTraces,
     learnerMemoryDelta,
+    learnerMemoryGuidance,
     remediationPlan,
     thinkingGraph,
     correctionCard: buildCorrectionCard({
