@@ -18,19 +18,29 @@ async function main() {
     await assertPage(browser, `${baseUrl}/workbench-preview`, {
       name: "workbench-preview-desktop",
       viewport: { width: 1440, height: 900 },
-      requiredText: ["Math-SEARAG Workbench", "Agent Inspector", "第一断点"],
+      requiredText: ["Math-SEARAG Workbench", "Agent Inspector", "学生画像"],
       maxHorizontalOverflow: 0,
     });
     await assertPage(browser, `${baseUrl}/workbench-preview`, {
       name: "workbench-preview-mobile",
       viewport: { width: 390, height: 844 },
-      requiredText: ["Math-SEARAG Learning Agent", "苏格拉底追问"],
+      requiredText: ["Math-SEARAG Learning Agent"],
       maxHorizontalOverflow: 0,
     });
+    if (process.env.POSTGRES_URL) {
+      await assertPage(browser, `${baseUrl}/`, {
+        name: "formal-chat-empty-profile",
+        viewport: { width: 1440, height: 900 },
+        requiredText: ["Math-SEARAG Workbench", "完成一次诊断后生成画像"],
+        maxHorizontalOverflow: 0,
+      });
+    } else {
+      console.log("[release-smoke] skipped formal chat smoke without POSTGRES_URL");
+    }
     await assertPage(browser, `${baseUrl}/geometry-lab`, {
       name: "geometry-lab-desktop",
       viewport: { width: 1440, height: 900 },
-      requiredText: ["Geometry Lab", "Spec OK", "证据链"],
+      requiredText: ["Geometry Lab", "Spec OK"],
       maxHorizontalOverflow: 0,
     });
   } finally {

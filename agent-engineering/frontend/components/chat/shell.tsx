@@ -20,6 +20,7 @@ import {
 import { AgentInspector } from "@/components/learning-workbench/agent-inspector";
 import { LearningWorkbenchSidebar } from "@/components/learning-workbench/workbench-sidebar";
 import type { MathDiagnosisToolResult } from "@/lib/ai/math-diagnosis-types";
+import type { StudentWorkbenchSummary } from "@/lib/ai/student-workbench-types";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Artifact } from "./artifact";
@@ -29,7 +30,11 @@ import { submitEditedMessage } from "./message-editor";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 
-export function ChatShell() {
+export function ChatShell({
+  initialWorkbenchSummary = null,
+}: {
+  initialWorkbenchSummary?: StudentWorkbenchSummary | null;
+}) {
   const {
     chatId,
     messages,
@@ -56,6 +61,7 @@ export function ChatShell() {
   );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
+  const [isMobileInspectorOpen, setIsMobileInspectorOpen] = useState(false);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
   const { setArtifact } = useArtifact();
   const latestDiagnosis = getLatestMathDiagnosisResult(messages);
@@ -77,7 +83,11 @@ export function ChatShell() {
   return (
     <>
       <div className="flex h-dvh w-full flex-row overflow-hidden">
-        <LearningWorkbenchSidebar result={latestDiagnosis} />
+        <LearningWorkbenchSidebar
+          latestDiagnosis={latestDiagnosis}
+          recentDiagnoses={initialWorkbenchSummary?.recentDiagnoses ?? []}
+          workbenchSummary={initialWorkbenchSummary}
+        />
 
         <div className="flex min-w-0 flex-1 flex-row overflow-hidden">
           <div
@@ -116,6 +126,13 @@ export function ChatShell() {
               />
 
               <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
+                <button
+                  className="absolute right-3 bottom-[calc(100%+8px)] rounded-md border border-border/60 bg-card px-3 py-1.5 font-medium text-xs shadow-sm xl:hidden"
+                  onClick={() => setIsMobileInspectorOpen(true)}
+                  type="button"
+                >
+                  Agent Inspector
+                </button>
                 {!isReadonly && (
                   <MultimodalInput
                     attachments={attachments}
@@ -179,9 +196,20 @@ export function ChatShell() {
 
         <AgentInspector
           collapsed={isInspectorCollapsed}
+          exportable
+          mobileMode="sidebar"
           onToggle={() => setIsInspectorCollapsed((value) => !value)}
           result={latestDiagnosis}
         />
+        {isMobileInspectorOpen && (
+          <AgentInspector
+            collapsed={false}
+            exportable
+            mobileMode="drawer"
+            onToggle={() => setIsMobileInspectorOpen(false)}
+            result={latestDiagnosis}
+          />
+        )}
       </div>
 
       <DataStreamHandler />

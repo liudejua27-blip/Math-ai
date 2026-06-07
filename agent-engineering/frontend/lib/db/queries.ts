@@ -17,7 +17,16 @@ import postgres from "postgres";
 import type { ArtifactKind } from "@/components/chat/artifact";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
 import type { MathDiagnosisResult } from "../ai/math-diagnosis-types";
-import { buildWorkbenchEventsFromDiagnosis } from "../ai/workbench-events";
+import type {
+  AtomMemoryView,
+  DiagnosisHistoryItem,
+  DiagnosisSessionDetail,
+  StudentWorkbenchSummary,
+} from "../ai/student-workbench-types";
+import {
+  buildWorkbenchEventsFromDiagnosis,
+  type WorkbenchEvent,
+} from "../ai/workbench-events";
 import { ChatbotError } from "../errors";
 import { generateUUID } from "../utils";
 import {
@@ -858,4 +867,237 @@ export async function getLatestStudentProfileSummary(userId: string) {
       "Failed to get latest student profile summary"
     );
   }
+}
+
+export async function getStudentWorkbenchSummary(
+  userId: string
+): Promise<StudentWorkbenchSummary | null> {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [profile] = await db
+      .select()
+      .from(studentProfile)
+      .where(eq(studentProfile.userId, userId))
+      .limit(1);
+
+    if (!profile) {
+      return null;
+    }
+
+    const [atoms, recentDiagnoses, weeklyReports] = await Promise.all([
+      db
+        .select()
+        .from(atomMemory)
+        .where(eq(atomMemory.studentProfileId, profile.id))
+        .orderBy(desc(atomMemory.recurrenceCount), desc(atomMemory.updatedAt))
+        .limit(8),
+      db
+        .select()
+        .from(diagnosisSession)
+        .where(eq(diagnosisSession.userId, userId))
+        .orderBy(desc(diagnosisSession.createdAt))
+        .limit(8),
+      db
+        .select()
+        .from(weeklyLearningReport)
+        .where(eq(weeklyLearningReport.studentProfileId, profile.id))
+        .orderBy(desc(weeklyLearningReport.weekStart))
+        .limit(1),
+    ]);
+
+    const weeklyReport = weeklyReports[0] ?? null;
+    const planFromWeekly = toStringArray(weeklyReport?.recommendedPlanJson);
+    const planFromProfile = toStringArray(
+      getRecordValue(profile.masterySummary, "recommendedPlan")
+    );
+
+    return {
+      profile: {
+        id: profile.id,
+        userId: profile.userId,
+        grade: profile.grade,
+        targetExam: profile.targetExam,
+        weeklyState: profile.weeklyState,
+        masterySummary: profile.masterySummary,
+        updatedAt: toIsoString(profile.updatedAt),
+      },
+      topAtoms: atoms.map(mapAtomMemoryView),
+      recentDiagnoses: recentDiagnoses.map(mapDiagnosisHistoryItem),
+      weeklyReport: weeklyReport
+        ? {
+            id: weeklyReport.id,
+            weekStart: toIsoString(weeklyReport.weekStart),
+            summary: weeklyReport.summaryJson,
+            topRecurringAtoms: weeklyReport.topRecurringAtomsJson,
+            recommendedPlan: weeklyReport.recommendedPlanJson,
+            createdAt: toIsoString(weeklyReport.createdAt),
+          }
+        : null,
+      recommendedPlan: [
+        ...planFromWeekly,
+        ...planFromProfile.filter((item) => !planFromWeekly.includes(item)),
+      ].slice(0, 6),
+    };
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get student workbench summary"
+    );
+  }
+}
+
+export async function getDiagnosisSessionsByUserId(
+  userId: string,
+  limit = 20
+): Promise<DiagnosisHistoryItem[]> {
+  if (!databaseConfigured()) {
+    return [];
+  }
+
+  try {
+    const sessions = await db
+      .select()
+      .from(diagnosisSession)
+      .where(eq(diagnosisSession.userId, userId))
+      .orderBy(desc(diagnosisSession.createdAt))
+      .limit(Math.max(1, Math.min(limit, 50)));
+
+    return sessions.map(mapDiagnosisHistoryItem);
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get diagnosis sessions by user id"
+    );
+  }
+}
+
+export async function getDiagnosisSessionDetail(
+  sessionId: string,
+  userId: string
+): Promise<DiagnosisSessionDetail | null> {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [session] = await db
+      .select()
+      .from(diagnosisSession)
+      .where(
+        and(eq(diagnosisSession.id, sessionId), eq(diagnosisSession.userId, userId))
+      )
+      .limit(1);
+
+    if (!session) {
+      return null;
+    }
+
+    const events = await db
+      .select()
+      .from(workbenchEvent)
+      .where(eq(workbenchEvent.diagnosisSessionId, session.id))
+      .orderBy(asc(workbenchEvent.createdAt));
+
+    return {
+      sessionId: session.id,
+      sourceJobId: session.sourceJobId,
+      createdAt: toIsoString(session.createdAt),
+      problemText: session.problemText,
+      studentSteps: session.studentSteps,
+      result: session.resultJson as MathDiagnosisResult,
+      events: events.map((item) => item.payloadJson).filter(isWorkbenchEvent),
+    };
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get diagnosis session detail"
+    );
+  }
+}
+
+function mapDiagnosisHistoryItem(
+  session: typeof diagnosisSession.$inferSelect
+): DiagnosisHistoryItem {
+  const result = session.resultJson as Partial<MathDiagnosisResult>;
+  const atoms = Array.isArray(result.misconceptionAtoms)
+    ? result.misconceptionAtoms
+    : [];
+
+  return {
+    id: session.id,
+    sourceJobId: session.sourceJobId,
+    createdAt: toIsoString(session.createdAt),
+    problemPreview: compactPreview(session.problemText),
+    firstWrongStep: session.firstWrongStep,
+    confidence: session.confidence,
+    needHumanReview: session.needHumanReview,
+    atomIds: atoms.map((atom) => atom.id).filter(Boolean),
+    atomLabels: atoms.map((atom) => atom.label || atom.id).filter(Boolean),
+  };
+}
+
+function mapAtomMemoryView(
+  atom: typeof atomMemory.$inferSelect
+): AtomMemoryView {
+  return {
+    id: atom.id,
+    atomId: atom.atomId,
+    atomLabel: atom.atomLabel,
+    recurrenceCount: atom.recurrenceCount,
+    lastSeenAt: toIsoString(atom.lastSeenAt),
+    mastery: atom.mastery,
+    masteryLabel: getMasteryLabel(atom),
+    transferRate: atom.transferRate,
+    status: atom.status,
+  };
+}
+
+function getMasteryLabel(atom: typeof atomMemory.$inferSelect) {
+  if (atom.recurrenceCount >= 3 && atom.mastery !== "stable") {
+    return "连续复发";
+  }
+
+  if (atom.mastery === "stable" || atom.status === "stable") {
+    return "趋于稳定";
+  }
+
+  return "正在修复";
+}
+
+function compactPreview(text: string) {
+  return text.replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+function toIsoString(value: Date | string) {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function getRecordValue(value: unknown, key: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return (value as Record<string, unknown>)[key];
+}
+
+function isWorkbenchEvent(value: unknown): value is WorkbenchEvent {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "type" in value &&
+    "title" in value &&
+    "status" in value &&
+    "detail" in value
+  );
 }

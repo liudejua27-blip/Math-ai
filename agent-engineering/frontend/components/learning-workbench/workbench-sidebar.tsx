@@ -1,28 +1,41 @@
 "use client";
 
 import type { MathDiagnosisToolResult } from "@/lib/ai/math-diagnosis-types";
+import type {
+  DiagnosisHistoryItem,
+  StudentWorkbenchSummary,
+} from "@/lib/ai/student-workbench-types";
 import { cn } from "@/lib/utils";
 
 type LearningWorkbenchSidebarProps = {
-  result: MathDiagnosisToolResult | null;
+  latestDiagnosis: MathDiagnosisToolResult | null;
+  workbenchSummary: StudentWorkbenchSummary | null;
+  recentDiagnoses?: DiagnosisHistoryItem[];
   className?: string;
 };
 
-const defaultAtoms = [
-  { id: "A07", label: "定义域意识" },
-  { id: "A11", label: "跳步结论" },
-  { id: "A18", label: "参数分类" },
-  { id: "A34", label: "立体几何转换" },
-];
-
 export function LearningWorkbenchSidebar({
-  result,
+  latestDiagnosis,
+  workbenchSummary,
+  recentDiagnoses = workbenchSummary?.recentDiagnoses ?? [],
   className,
 }: LearningWorkbenchSidebarProps) {
-  const atoms =
-    result && !("error" in result) && result.misconceptionAtoms.length > 0
-      ? result.misconceptionAtoms.slice(0, 5)
-      : defaultAtoms;
+  const hasDiagnosis =
+    Boolean(latestDiagnosis) && !(latestDiagnosis && "error" in latestDiagnosis);
+  const latestAtoms =
+    latestDiagnosis && !("error" in latestDiagnosis)
+      ? latestDiagnosis.misconceptionAtoms.slice(0, 4)
+      : [];
+  const planItems =
+    workbenchSummary?.recommendedPlan.length
+      ? workbenchSummary.recommendedPlan
+      : hasDiagnosis
+        ? ["完成订正卡", "做 2 道同因变式", "复盘第一错步"]
+        : [];
+  const geometryLabs =
+    latestDiagnosis && !("error" in latestDiagnosis)
+      ? (latestDiagnosis.recommendedGeometryLabs ?? []).slice(0, 2)
+      : [];
 
   return (
     <aside
@@ -40,52 +53,121 @@ export function LearningWorkbenchSidebar({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <SidebarSection title="学生画像">
-          <div className="rounded-lg border border-border/60 bg-background/70 p-3">
-            <div className="font-medium text-sm">当前学生</div>
-            <div className="mt-1 text-muted-foreground text-xs leading-5">
-              画像由错因复发率、迁移率和自我修正率更新。接入 studentId 后会生成本次 delta。
-            </div>
-          </div>
-        </SidebarSection>
-
-        <SidebarSection title="高频错因">
-          <div className="grid gap-2">
-            {atoms.map((atom) => (
-              <div
-                className="flex items-center justify-between rounded-md border border-border/50 bg-background/70 px-3 py-2"
-                key={atom.id}
-              >
-                <span className="font-medium text-xs">{atom.id}</span>
-                <span className="max-w-36 truncate text-muted-foreground text-xs">
-                  {atom.label}
+          {workbenchSummary?.profile ? (
+            <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-medium text-sm">当前学习状态</div>
+                <span className="rounded-md bg-primary/10 px-2 py-0.5 text-primary text-xs">
+                  {formatWeeklyState(workbenchSummary.profile.weeklyState)}
                 </span>
               </div>
-            ))}
-          </div>
+              <div className="mt-2 text-muted-foreground text-xs leading-5">
+                画像会根据错因复发、变式迁移和订正表现持续更新。
+              </div>
+            </div>
+          ) : (
+            <EmptyState text="完成一次诊断后生成画像。" />
+          )}
+        </SidebarSection>
+
+        <SidebarSection title="高频错因原子">
+          {workbenchSummary?.topAtoms.length ? (
+            <div className="grid gap-2">
+              {workbenchSummary.topAtoms.map((atom) => (
+                <div
+                  className="rounded-md border border-border/50 bg-background/70 px-3 py-2"
+                  key={atom.id}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-xs">{atom.atomId}</span>
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground text-xs">
+                      {atom.masteryLabel}
+                    </span>
+                  </div>
+                  <div className="mt-1 truncate text-muted-foreground text-xs">
+                    {atom.atomLabel}
+                  </div>
+                  <div className="mt-1 text-muted-foreground text-[11px]">
+                    复发 {atom.recurrenceCount} 次 · 迁移率{" "}
+                    {Math.round(atom.transferRate * 100)}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : latestAtoms.length ? (
+            <div className="grid gap-2">
+              {latestAtoms.map((atom) => (
+                <AtomChip id={atom.id} key={atom.id} label={atom.label} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState text="暂无错因记录，先输入题目和自己的步骤。" />
+          )}
         </SidebarSection>
 
         <SidebarSection title="本周训练计划">
-          <div className="grid gap-2 text-sm">
-            <PlanItem label="首错定位" value="每天 2 题" />
-            <PlanItem label="同因变式" value="4 级递进" />
-            <PlanItem label="几何实验" value="按 A34 推荐" />
-          </div>
+          {planItems.length ? (
+            <div className="grid gap-2 text-sm">
+              {planItems.slice(0, 5).map((item, index) => (
+                <PlanItem key={`${item}-${index}`} label={item} value="待完成" />
+              ))}
+            </div>
+          ) : (
+            <EmptyState text="诊断后会生成同因变式和复盘计划。" />
+          )}
         </SidebarSection>
 
-        <SidebarSection title="题型入口">
-          <div className="grid grid-cols-2 gap-2">
-            {["导数", "函数", "不等式", "立体几何", "解析几何", "数列"].map(
-              (topic) => (
-                <button
-                  className="rounded-md border border-border/50 bg-background/70 px-2 py-2 text-xs transition hover:border-primary/40 hover:text-primary"
-                  key={topic}
-                  type="button"
+        <SidebarSection title="最近诊断">
+          {recentDiagnoses.length ? (
+            <div className="grid gap-2">
+              {recentDiagnoses.slice(0, 6).map((item) => (
+                <a
+                  className="rounded-md border border-border/50 bg-background/70 px-3 py-2 transition hover:border-primary/40"
+                  href={`/diagnosis/${item.id}`}
+                  key={item.id}
                 >
-                  {topic}
-                </button>
-              )
-            )}
-          </div>
+                  <div className="line-clamp-2 text-xs leading-5">
+                    {item.problemPreview || "未命名诊断"}
+                  </div>
+                  <div className="mt-1 flex items-center justify-between gap-2 text-muted-foreground text-[11px]">
+                    <span>{formatDate(item.createdAt)}</span>
+                    <span>{Math.round(item.confidence * 100)}%</span>
+                  </div>
+                  {item.firstWrongStep && (
+                    <div className="mt-1 line-clamp-1 text-muted-foreground text-[11px]">
+                      第一错步：{item.firstWrongStep}
+                    </div>
+                  )}
+                  {item.needHumanReview && (
+                    <div className="mt-1 text-amber-700 text-[11px] dark:text-amber-300">
+                      需要人工复核
+                    </div>
+                  )}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <EmptyState text="暂无历史诊断。" />
+          )}
+        </SidebarSection>
+
+        <SidebarSection title="Geometry Lab">
+          {geometryLabs.length ? (
+            <div className="grid gap-2">
+              {geometryLabs.map((lab) => (
+                <a
+                  className="rounded-md border border-cyan-200/70 bg-cyan-50 px-3 py-2 text-cyan-900 text-xs leading-5 transition hover:border-cyan-400 dark:border-cyan-900/70 dark:bg-cyan-950/30 dark:text-cyan-100"
+                  href={`/geometry-lab?level=${encodeURIComponent(lab.levelId)}`}
+                  key={lab.levelId}
+                >
+                  <div className="font-medium">{lab.title}</div>
+                  <div className="mt-1 opacity-80">{lab.reason}</div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <EmptyState text="出现立体几何错因后会推荐对应实验。" />
+          )}
         </SidebarSection>
       </div>
     </aside>
@@ -111,10 +193,49 @@ function SidebarSection({
 
 function PlanItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-md border border-border/50 bg-background/70 px-3 py-2">
-      <span>{label}</span>
-      <span className="text-muted-foreground text-xs">{value}</span>
+    <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-background/70 px-3 py-2">
+      <span className="min-w-0 truncate">{label}</span>
+      <span className="shrink-0 text-muted-foreground text-xs">{value}</span>
     </div>
   );
 }
 
+function AtomChip({ id, label }: { id: string; label: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-md border border-border/50 bg-background/70 px-3 py-2">
+      <span className="font-medium text-xs">{id}</span>
+      <span className="max-w-36 truncate text-muted-foreground text-xs">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-md border border-dashed border-border/60 bg-background/50 px-3 py-3 text-muted-foreground text-xs leading-5">
+      {text}
+    </div>
+  );
+}
+
+function formatWeeklyState(state: string) {
+  if (state === "needs_review") {
+    return "待复核";
+  }
+
+  if (state === "active") {
+    return "训练中";
+  }
+
+  return "新手期";
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}

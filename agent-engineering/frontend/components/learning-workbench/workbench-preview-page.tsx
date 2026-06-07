@@ -11,7 +11,11 @@ export function WorkbenchPreviewPage() {
 
   return (
     <main className="flex h-dvh w-full overflow-hidden bg-background">
-      <LearningWorkbenchSidebar result={sampleDiagnosis} />
+      <LearningWorkbenchSidebar
+        latestDiagnosis={sampleDiagnosis}
+        recentDiagnoses={[]}
+        workbenchSummary={null}
+      />
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex h-14 shrink-0 items-center justify-between border-border/60 border-b px-4">
           <div>
