@@ -64,7 +64,22 @@ cd agent-engineering/frontend
 corepack pnpm exec tsc --noEmit
 corepack pnpm exec tsx .\lib\ai\math-rules-engine.test.ts
 corepack pnpm exec tsx .\lib\geometry\geometry-levels.test.ts
+corepack pnpm run test:release
 
 cd ..\..\math-own
 python -m unittest discover -s tests
+```
+
+## 发布准备
+
+发布前阅读：
+
+`agent-engineering/docs/04-release-readiness.md`
+
+核心健康检查：
+
+```text
+GET /api/health
+GET /workbench-preview
+GET /geometry-lab
 ```

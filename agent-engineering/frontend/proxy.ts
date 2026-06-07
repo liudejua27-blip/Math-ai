@@ -13,6 +13,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname.startsWith("/api/health")) {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/geometry-lab")) {
     return NextResponse.next();
   }
