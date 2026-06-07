@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useMemo, useRef } from "react";
+import { gsap } from "gsap";
 import type { GeometrySceneSpec } from "@/lib/geometry/geometry-scene-types";
 import { cn } from "@/lib/utils";
 
 type GeometrySceneRendererProps = {
   scene: GeometrySceneSpec;
   selectedRefs: string[];
+  activeTimelineId: string | null;
   onSelectRef: (refId: string) => void;
 };
 
@@ -14,23 +17,70 @@ type Point2D = { x: number; y: number };
 export function GeometrySceneRenderer({
   scene,
   selectedRefs,
+  activeTimelineId,
   onSelectRef,
 }: GeometrySceneRendererProps) {
-  const selected = new Set(selectedRefs);
-  const points = new Map(
-    scene.vertices.map((vertex) => [vertex.id, project(vertex.position)])
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const selected = useMemo(() => new Set(selectedRefs), [selectedRefs]);
+  const points = useMemo(
+    () =>
+      new Map(
+        scene.vertices.map((vertex) => [vertex.id, project(vertex.position)])
+      ),
+    [scene.vertices]
   );
+
+  useEffect(() => {
+    if (!svgRef.current) {
+      return;
+    }
+
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const context = gsap.context(() => {
+      const refs = selectedRefs.length
+        ? selectedRefs
+        : scene.targets.flatMap((target) => target.correctRefs);
+      const targets = refs
+        .map((refId) =>
+          svgRef.current?.querySelector(`[data-geometry-ref="${refId}"]`)
+        )
+        .filter(Boolean);
+
+      if (targets.length === 0) {
+        return;
+      }
+
+      gsap.fromTo(
+        targets,
+        { autoAlpha: 0.58, scale: reduceMotion ? 1 : 0.96 },
+        {
+          autoAlpha: 1,
+          scale: 1,
+          duration: reduceMotion ? 0 : 0.42,
+          ease: "power2.out",
+          stagger: { each: 0.04, from: "center" },
+          transformOrigin: "center center",
+          overwrite: "auto",
+        }
+      );
+    }, svgRef);
+
+    return () => context.revert();
+  }, [activeTimelineId, scene.targets, selectedRefs]);
 
   return (
     <svg
       aria-label={`${scene.levelId} geometry scene`}
       className="h-full min-h-[360px] w-full rounded-md bg-slate-950"
+      ref={svgRef}
       role="img"
       viewBox="0 0 720 440"
     >
       <defs>
         <filter id="geometry-glow" x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feGaussianBlur result="blur" stdDeviation="3" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -73,6 +123,7 @@ export function GeometrySceneRenderer({
           return (
             <polygon
               className="cursor-pointer transition"
+              data-geometry-ref={face.id}
               fill={faceFill(face.kind, isSelected)}
               filter={isSelected ? "url(#geometry-glow)" : undefined}
               key={face.id}
@@ -95,7 +146,7 @@ export function GeometrySceneRenderer({
           }
           const isSelected = selected.has(edge.id);
           return (
-            <g key={edge.id}>
+            <g data-geometry-ref={edge.id} key={edge.id}>
               <line
                 className="cursor-pointer"
                 filter={isSelected ? "url(#geometry-glow)" : undefined}
@@ -103,7 +154,9 @@ export function GeometrySceneRenderer({
                 stroke={edgeStroke(edge.kind, isSelected)}
                 strokeDasharray={edge.kind === "hidden" ? "8 7" : undefined}
                 strokeLinecap="round"
-                strokeWidth={edge.kind === "auxiliary" || edge.kind === "projection" ? 3 : 4}
+                strokeWidth={
+                  edge.kind === "auxiliary" || edge.kind === "projection" ? 3 : 4
+                }
                 x1={from.x}
                 x2={to.x}
                 y1={from.y}
@@ -136,6 +189,7 @@ export function GeometrySceneRenderer({
             return (
               <g
                 className="cursor-pointer"
+                data-geometry-ref={vertex.id}
                 key={vertex.id}
                 onClick={() => onSelectRef(vertex.id)}
               >

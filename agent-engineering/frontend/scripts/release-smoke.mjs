@@ -40,7 +40,7 @@ async function main() {
     await assertPage(browser, `${baseUrl}/geometry-lab`, {
       name: "geometry-lab-desktop",
       viewport: { width: 1440, height: 900 },
-      requiredText: ["Geometry Lab", "Spec OK"],
+      requiredText: ["Geometry Lab", "Spec OK", "正方体线面角", "新手引导", "我订正完了"],
       maxHorizontalOverflow: 0,
     });
   } finally {

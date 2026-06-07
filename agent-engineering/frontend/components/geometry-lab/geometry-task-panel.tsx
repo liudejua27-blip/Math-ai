@@ -6,12 +6,16 @@ import { cn } from "@/lib/utils";
 type GeometryTaskPanelProps = {
   scene: GeometrySceneSpec;
   selectedRefs: string[];
+  reasonText: string;
+  setReasonText: (value: string) => void;
   onSelectRef: (refId: string) => void;
 };
 
 export function GeometryTaskPanel({
   scene,
   selectedRefs,
+  reasonText,
+  setReasonText,
   onSelectRef,
 }: GeometryTaskPanelProps) {
   const selected = new Set(selectedRefs);
@@ -23,7 +27,10 @@ export function GeometryTaskPanel({
         {scene.targets.map((target) => {
           const solved = target.correctRefs.some((refId) => selected.has(refId));
           return (
-            <div className="rounded-md border border-border bg-background p-3" key={target.id}>
+            <div
+              className="rounded-md border border-border bg-background p-3"
+              key={target.id}
+            >
               <div className="flex items-center justify-between gap-3">
                 <div className="font-medium text-sm">{target.prompt}</div>
                 <span
@@ -58,6 +65,15 @@ export function GeometryTaskPanel({
           );
         })}
       </div>
+      <label className="mt-4 block">
+        <span className="font-medium text-sm">几何依据</span>
+        <textarea
+          className="mt-2 min-h-24 w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm outline-none transition placeholder:text-muted-foreground focus:border-cyan-400"
+          onChange={(event) => setReasonText(event.target.value)}
+          placeholder="例如：A1 在底面 ABCD 上的射影是 A，所以 A1C 与底面的线面角转化为 A1C 与 AC 的夹角。"
+          value={reasonText}
+        />
+      </label>
     </section>
   );
 }

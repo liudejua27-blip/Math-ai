@@ -1,15 +1,18 @@
 "use client";
 
 import type { GeometrySceneSpec } from "@/lib/geometry/geometry-scene-types";
+import { cn } from "@/lib/utils";
 
 type GeometryTimelineProps = {
   scene: GeometrySceneSpec;
-  onSelectRefs: (refIds: string[]) => void;
+  activeTimelineId: string | null;
+  onPlayStep: (itemId: string, refIds: string[]) => void;
 };
 
 export function GeometryTimeline({
   scene,
-  onSelectRefs,
+  activeTimelineId,
+  onPlayStep,
 }: GeometryTimelineProps) {
   return (
     <section className="border-border border-b p-4">
@@ -17,9 +20,14 @@ export function GeometryTimeline({
       <div className="mt-3 grid gap-2">
         {scene.timeline.map((item, index) => (
           <button
-            className="rounded-md border border-border bg-background px-3 py-2 text-left text-sm transition hover:border-cyan-300"
+            className={cn(
+              "rounded-md border bg-background px-3 py-2 text-left text-sm transition hover:border-cyan-300",
+              activeTimelineId === item.id
+                ? "border-cyan-400 bg-cyan-50 dark:bg-cyan-950/30"
+                : "border-border"
+            )}
             key={item.id}
-            onClick={() => onSelectRefs(item.refs)}
+            onClick={() => onPlayStep(item.id, item.refs)}
             type="button"
           >
             <div className="flex items-center gap-2">
@@ -38,15 +46,17 @@ export function GeometryTimeline({
   );
 }
 
-function timelineActionLabel(action: GeometrySceneSpec["timeline"][number]["action"]) {
+function timelineActionLabel(
+  action: GeometrySceneSpec["timeline"][number]["action"]
+) {
   const labels: Record<typeof action, string> = {
-    focus: "聚焦",
+    focus: "聚焦关键对象",
     highlight_vertex: "高亮顶点",
-    highlight_edge: "高亮棱",
-    highlight_face: "高亮面",
+    highlight_edge: "高亮线段",
+    highlight_face: "高亮平面",
     draw_auxiliary_edge: "作辅助线",
     draw_auxiliary_face: "作辅助面",
-    show_projection: "显示投影",
+    show_projection: "显示射影",
     show_angle: "显示角",
     show_distance: "显示距离",
     rotate_camera: "旋转观察",
