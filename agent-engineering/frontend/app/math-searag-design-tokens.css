@@ -252,6 +252,17 @@
     box-shadow: var(--ms-shadow-card-soft);
   }
 
+  .ms-host-chip {
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-lg);
+    background: linear-gradient(
+      180deg,
+      var(--ms-surface-elevated),
+      var(--ms-surface-card)
+    );
+    box-shadow: var(--ms-shadow-card-soft);
+  }
+
   .ms-chip,
   .ds-chip {
     display: inline-flex;

@@ -8,7 +8,7 @@
     "start": "next start",
     "check": "ultracite check",
     "fix": "ultracite fix",
-    "test:ai": "tsx lib/ai/agent-run-view-model.test.ts && tsx lib/ai/diagnosis-enhancement-engine.test.ts && tsx lib/ai/learner-memory-engine.test.ts && tsx lib/ai/math-rules-engine.test.ts && tsx lib/ai/models.test.ts && tsx lib/ai/remediation-loop-engine.test.ts && tsx lib/ai/socratic-policy-engine.test.ts && tsx lib/ai/step-alignment.test.ts && tsx lib/ai/verifier-trace-engine.test.ts && tsx lib/evaluation/evaluation.test.ts && tsx lib/geometry/geometry-levels.test.ts && tsx lib/geometry/geometry-scene-validator.test.ts",
+    "test:ai": "tsx lib/ai/agent-run-view-model.test.ts && tsx lib/ai/browserized-agent-host.test.ts && tsx lib/ai/diagnosis-enhancement-engine.test.ts && tsx lib/ai/learner-memory-engine.test.ts && tsx lib/ai/math-rules-engine.test.ts && tsx lib/ai/models.test.ts && tsx lib/ai/remediation-loop-engine.test.ts && tsx lib/ai/socratic-policy-engine.test.ts && tsx lib/ai/step-alignment.test.ts && tsx lib/ai/verifier-trace-engine.test.ts && tsx lib/evaluation/evaluation.test.ts && tsx lib/geometry/geometry-levels.test.ts && tsx lib/geometry/geometry-scene-validator.test.ts",
     "release:env": "node scripts/validate-release-env.mjs",
     "release:env:strict": "node scripts/validate-release-env.mjs --strict",
     "test:release": "pnpm run release:env && pnpm exec tsc --noEmit --incremental false && pnpm run test:ai && node scripts/release-smoke.mjs",

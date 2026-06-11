@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import type { MathDiagnosisToolResult } from "@/lib/ai/math-diagnosis-types";
+import { buildBrowserizedAgentHostSnapshot } from "@/lib/ai/browserized-agent-host";
 import type {
   MathAgentRunStatus,
   MathAgentRuntimeControlAction,
@@ -42,6 +43,15 @@ export function AgentRunRibbon({
         events: liveEvents,
         result,
         status: runtimeStatus,
+      }),
+    [liveEvents, result, runtimeStatus]
+  );
+  const hostSnapshot = useMemo(
+    () =>
+      buildBrowserizedAgentHostSnapshot({
+        events: liveEvents,
+        result,
+        runtimeStatus,
       }),
     [liveEvents, result, runtimeStatus]
   );
@@ -107,6 +117,18 @@ export function AgentRunRibbon({
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-0.5">
+          <div className="ms-host-chip shrink-0 px-2.5 py-1.5 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="size-1.5 rounded-full bg-[var(--ms-accent)]" />
+              <span className="font-semibold">{hostSnapshot.hostLabel}</span>
+              <span className={cn("rounded px-1.5 py-0.5", transportTone(hostSnapshot.activeTransport))}>
+                {hostSnapshot.activeTransport}
+              </span>
+            </div>
+            <div className="mt-1 max-w-[320px] truncate text-muted-foreground">
+              {hostSnapshot.reconnectLabel}
+            </div>
+          </div>
           {viewModel.phaseStates.map((phase) => (
             <PhaseChip key={phase.phase} phase={phase} />
           ))}
@@ -133,6 +155,16 @@ export function AgentRunRibbon({
       </div>
     </section>
   );
+}
+
+function transportTone(transport: "sse" | "result_replay" | "idle") {
+  if (transport === "sse") {
+    return "bg-blue-500/10 text-blue-700 dark:text-blue-300";
+  }
+  if (transport === "result_replay") {
+    return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
+  }
+  return "bg-muted text-muted-foreground";
 }
 
 function RibbonButton({
