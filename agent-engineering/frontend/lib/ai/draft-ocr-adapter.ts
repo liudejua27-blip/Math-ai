@@ -92,6 +92,7 @@ function normalizeDraftOCRResult(payload: unknown): DraftOCRResult | DraftOCRErr
 
   return {
     id: String(result.id ?? `draft-ocr-${Date.now()}`),
+    sampleId: result.sampleId,
     source: result.source ?? "paddleocr",
     status: requiresStudentConfirmation ? "needs_confirmation" : "completed",
     pageBlocks: Array.isArray(result.pageBlocks) ? result.pageBlocks : [],
@@ -107,6 +108,7 @@ function normalizeDraftOCRResult(payload: unknown): DraftOCRResult | DraftOCRErr
       result.confirmationPrompt ??
       "请先核对 OCR 识别出的题干、步骤和公式，再开始诊断。",
     warnings: Array.isArray(result.warnings) ? result.warnings : [],
+    dataFlywheel: result.dataFlywheel,
   };
 }
 

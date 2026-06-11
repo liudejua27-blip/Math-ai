@@ -4,17 +4,29 @@ import { runMathDiagnosisWorkflow } from "../ai/math-diagnosis-workflow";
 import {
   OCR_DIAGNOSIS_CASES,
   type OCRDiagnosisCase,
+  type OCRNoiseTag,
 } from "./ocr-diagnosis-dataset";
 
 export type OCRDiagnosisCaseResult = {
   caseId: string;
   topic: OCRDiagnosisCase["topic"];
   imageFixtureId: string;
+  noiseTags: OCRNoiseTag[];
   passed: boolean;
   firstWrongStep?: string | null;
   detectedAtomIds: string[];
   failures: string[];
 };
+
+export type OCRNoiseIssueBreakdown = Record<
+  OCRNoiseTag,
+  {
+    totalCases: number;
+    firstWrongStepFailures: number;
+    atomFailures: number;
+    failureRate: number;
+  }
+>;
 
 export type OCRDiagnosisEvaluationReport = {
   generatedAt: string;
@@ -23,6 +35,7 @@ export type OCRDiagnosisEvaluationReport = {
     totalCases: number;
     firstWrongStepAccuracy: number;
     atomRecall: number;
+    issueBreakdown: OCRNoiseIssueBreakdown;
   };
   cases: OCRDiagnosisCaseResult[];
   markdownTable: string;
@@ -68,6 +81,7 @@ function evaluateOCRDiagnosisCase(
       caseId: item.id,
       topic: item.topic,
       imageFixtureId: item.imageFixtureId,
+      noiseTags: item.noiseTags,
       passed: false,
       detectedAtomIds: [],
       failures,
@@ -91,6 +105,7 @@ function evaluateOCRDiagnosisCase(
     caseId: item.id,
     topic: item.topic,
     imageFixtureId: item.imageFixtureId,
+    noiseTags: item.noiseTags,
     passed: failures.length === 0,
     firstWrongStep: diagnosis.firstWrongStep,
     detectedAtomIds,
@@ -101,26 +116,67 @@ function evaluateOCRDiagnosisCase(
 function computeOCRDiagnosisMetrics(cases: OCRDiagnosisCaseResult[]) {
   const totalCases = cases.length || 1;
   const firstWrongStepHits = cases.filter(
-    (item) => !item.failures.some((failure) => failure.startsWith("first_wrong_step"))
+    (item) =>
+      !item.failures.some(
+        (failure) =>
+          failure === "diagnosis_failed" ||
+          failure.startsWith("first_wrong_step")
+      )
   ).length;
   const atomHits = cases.filter(
-    (item) => !item.failures.some((failure) => failure.startsWith("missing_atom"))
+    (item) =>
+      !item.failures.some(
+        (failure) =>
+          failure === "diagnosis_failed" || failure.startsWith("missing_atom")
+      )
   ).length;
 
   return {
     totalCases: cases.length,
     firstWrongStepAccuracy: firstWrongStepHits / totalCases,
     atomRecall: atomHits / totalCases,
+    issueBreakdown: computeOCRNoiseIssueBreakdown(cases),
   };
+}
+
+function computeOCRNoiseIssueBreakdown(
+  cases: OCRDiagnosisCaseResult[]
+): OCRNoiseIssueBreakdown {
+  const tags = new Set<OCRNoiseTag>();
+  for (const item of cases) {
+    for (const tag of item.noiseTags) {
+      tags.add(tag);
+    }
+  }
+
+  const breakdown = {} as OCRNoiseIssueBreakdown;
+  for (const tag of tags) {
+    const taggedCases = cases.filter((item) => item.noiseTags.includes(tag));
+    const totalCases = taggedCases.length || 1;
+    const firstWrongStepFailures = taggedCases.filter((item) =>
+      item.failures.some((failure) => failure.startsWith("first_wrong_step"))
+    ).length;
+    const atomFailures = taggedCases.filter((item) =>
+      item.failures.some((failure) => failure.startsWith("missing_atom"))
+    ).length;
+    breakdown[tag] = {
+      totalCases: taggedCases.length,
+      firstWrongStepFailures,
+      atomFailures,
+      failureRate: (firstWrongStepFailures + atomFailures) / totalCases,
+    };
+  }
+
+  return breakdown;
 }
 
 function buildOCRDiagnosisMarkdown(cases: OCRDiagnosisCaseResult[]) {
   return [
-    "| Case | Topic | Passed | First Wrong Step | Failures |",
-    "| --- | --- | --- | --- | --- |",
+    "| Case | Topic | OCR Noise | Passed | First Wrong Step | Failures |",
+    "| --- | --- | --- | --- | --- | --- |",
     ...cases.map(
       (item) =>
-        `| ${item.caseId} | ${item.topic} | ${item.passed ? "yes" : "no"} | ${item.firstWrongStep ?? "-"} | ${item.failures.join("; ") || "-"} |`
+        `| ${item.caseId} | ${item.topic} | ${item.noiseTags.join(", ")} | ${item.passed ? "yes" : "no"} | ${item.firstWrongStep ?? "-"} | ${item.failures.join("; ") || "-"} |`
     ),
   ].join("\n");
 }

@@ -53,6 +53,7 @@ export type DraftOCREngineReport = {
 
 export type DraftOCRResult = {
   id: string;
+  sampleId?: string;
   source:
     | "hybrid"
     | "pix2text"
@@ -75,6 +76,13 @@ export type DraftOCRResult = {
   requiresStudentConfirmation: boolean;
   confirmationPrompt: string;
   warnings: string[];
+  dataFlywheel?: {
+    sampleId?: string;
+    sourceImageUrl?: string;
+    rawCropCount?: number;
+    lowConfidenceCount?: number;
+    issueTags?: string[];
+  };
 };
 
 export type DraftOCRRequest = {

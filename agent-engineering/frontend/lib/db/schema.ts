@@ -200,6 +200,40 @@ export const mathAgentRun = pgTable("MathAgentRun", {
 
 export type MathAgentRun = InferSelectModel<typeof mathAgentRun>;
 
+export const draftOCRSample = pgTable("DraftOCRSample", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  chatId: uuid("chatId").references(() => chat.id),
+  diagnosisSessionId: uuid("diagnosisSessionId").references(
+    () => diagnosisSession.id
+  ),
+  sourceImageUrl: text("sourceImageUrl"),
+  sourceImageHash: varchar("sourceImageHash", { length: 128 }),
+  fileName: text("fileName"),
+  mimeType: varchar("mimeType", { length: 128 }),
+  ocrSource: varchar("ocrSource", { length: 64 }).notNull().default("unknown"),
+  status: varchar("status", { length: 32 }).notNull().default("raw"),
+  rawResultJson: json("rawResultJson").notNull(),
+  confirmedResultJson: json("confirmedResultJson"),
+  rawCropRefsJson: json("rawCropRefsJson").notNull().default([]),
+  lowConfidenceItemsJson: json("lowConfidenceItemsJson").notNull().default([]),
+  extractedProblemText: text("extractedProblemText"),
+  extractedStudentSteps: text("extractedStudentSteps"),
+  confirmedProblemText: text("confirmedProblemText"),
+  confirmedStudentSteps: text("confirmedStudentSteps"),
+  editSummaryJson: json("editSummaryJson").notNull().default({}),
+  predictedFirstWrongStep: varchar("predictedFirstWrongStep", { length: 32 }),
+  confirmedFirstWrongStep: varchar("confirmedFirstWrongStep", { length: 32 }),
+  issueStatsJson: json("issueStatsJson").notNull().default({}),
+  labelStatus: varchar("labelStatus", { length: 32 }).notNull().default("unlabeled"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type DraftOCRSample = InferSelectModel<typeof draftOCRSample>;
+
 export const atomMemory = pgTable("AtomMemory", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   studentProfileId: uuid("studentProfileId")

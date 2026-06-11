@@ -21,6 +21,7 @@ import type {
   MathDiagnosisResult,
   MathDiagnosisToolResult,
 } from "../ai/math-diagnosis-types";
+import type { DraftOCRResult } from "../ai/draft-ocr-types";
 import type {
   AtomMemoryView,
   DiagnosisHistoryItem,
@@ -40,6 +41,7 @@ import {
   diagnosisSession,
   type DBMessage,
   document,
+  draftOCRSample,
   geometryAttempt,
   mathAgentRun,
   message,
@@ -907,6 +909,157 @@ export async function getMathAgentRunRecord(runId: string) {
   }
 }
 
+export async function saveDraftOCRRawSample({
+  userId,
+  chatId,
+  imageUrl,
+  fileName,
+  mimeType,
+  imageHash,
+  result,
+}: {
+  userId: string;
+  chatId?: string | null;
+  imageUrl?: string | null;
+  fileName?: string | null;
+  mimeType?: string | null;
+  imageHash?: string | null;
+  result: DraftOCRResult;
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const rawCropRefs = collectDraftOCRRawCropRefs(result);
+    const issueStats = computeDraftOCRIssueStats({
+      rawText: `${result.extractedProblemText}\n${result.extractedStudentSteps}`,
+      confirmedText: "",
+      lowConfidenceCount: result.lowConfidenceItems.length,
+      rawCropCount: rawCropRefs.length,
+    });
+    const [sample] = await db
+      .insert(draftOCRSample)
+      .values({
+        userId,
+        chatId: isUuid(chatId) ? chatId : null,
+        sourceImageUrl: imageUrl ?? null,
+        sourceImageHash: imageHash ?? null,
+        fileName: fileName ?? null,
+        mimeType: mimeType ?? null,
+        ocrSource: result.source,
+        status: "raw",
+        rawResultJson: result,
+        rawCropRefsJson: rawCropRefs,
+        lowConfidenceItemsJson: result.lowConfidenceItems,
+        extractedProblemText: result.extractedProblemText,
+        extractedStudentSteps: result.extractedStudentSteps,
+        issueStatsJson: issueStats,
+      })
+      .returning();
+    return sample;
+  } catch (_error) {
+    return null;
+  }
+}
+
+export async function updateDraftOCRConfirmedSample({
+  sampleId,
+  userId,
+  confirmedResult,
+}: {
+  sampleId: string;
+  userId: string;
+  confirmedResult: DraftOCRResult;
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [existing] = await db
+      .select()
+      .from(draftOCRSample)
+      .where(and(eq(draftOCRSample.id, sampleId), eq(draftOCRSample.userId, userId)))
+      .limit(1);
+
+    if (!existing) {
+      return null;
+    }
+
+    const rawProblemText = existing.extractedProblemText ?? "";
+    const rawStepText = existing.extractedStudentSteps ?? "";
+    const confirmedText = `${confirmedResult.extractedProblemText}\n${confirmedResult.extractedStudentSteps}`;
+    const editSummary = buildDraftOCREditSummary({
+      rawProblemText,
+      rawStepText,
+      confirmedProblemText: confirmedResult.extractedProblemText,
+      confirmedStudentSteps: confirmedResult.extractedStudentSteps,
+    });
+    const issueStats = computeDraftOCRIssueStats({
+      rawText: `${rawProblemText}\n${rawStepText}`,
+      confirmedText,
+      lowConfidenceCount: confirmedResult.lowConfidenceItems.length,
+      rawCropCount: collectDraftOCRRawCropRefs(confirmedResult).length,
+    });
+
+    const [updated] = await db
+      .update(draftOCRSample)
+      .set({
+        status: "confirmed",
+        confirmedResultJson: confirmedResult,
+        confirmedProblemText: confirmedResult.extractedProblemText,
+        confirmedStudentSteps: confirmedResult.extractedStudentSteps,
+        editSummaryJson: editSummary,
+        issueStatsJson: issueStats,
+        labelStatus:
+          editSummary.changedLineCount > 0 || issueStats.totalIssueCount > 0
+            ? "needs_review"
+            : "unlabeled",
+        updatedAt: new Date(),
+      })
+      .where(and(eq(draftOCRSample.id, sampleId), eq(draftOCRSample.userId, userId)))
+      .returning();
+    return updated;
+  } catch (_error) {
+    return null;
+  }
+}
+
+export async function updateDraftOCRDiagnosisOutcome({
+  sampleId,
+  userId,
+  diagnosisSessionId,
+  predictedFirstWrongStep,
+}: {
+  sampleId: string;
+  userId: string;
+  diagnosisSessionId?: string | null;
+  predictedFirstWrongStep?: string | null;
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [updated] = await db
+      .update(draftOCRSample)
+      .set({
+        status: "diagnosed",
+        diagnosisSessionId: isUuid(diagnosisSessionId)
+          ? diagnosisSessionId
+          : null,
+        predictedFirstWrongStep: predictedFirstWrongStep ?? null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(draftOCRSample.id, sampleId), eq(draftOCRSample.userId, userId)))
+      .returning();
+    return updated ?? null;
+  } catch (_error) {
+    return null;
+  }
+}
+
 export async function getOrCreateStudentProfile(userId: string) {
   const [existing] = await db
     .select()
@@ -1758,6 +1911,119 @@ function isUuid(value: unknown): value is string {
       value
     )
   );
+}
+
+function collectDraftOCRRawCropRefs(result: DraftOCRResult) {
+  const refs: Array<{
+    id: string;
+    kind: "block" | "line" | "formula";
+    rawImageCrop: string;
+    confidence: number;
+  }> = [];
+
+  for (const block of result.pageBlocks) {
+    if (block.rawImageCrop) {
+      refs.push({
+        id: block.id,
+        kind: "block",
+        rawImageCrop: block.rawImageCrop,
+        confidence: block.confidence,
+      });
+    }
+    for (const line of block.lineItems) {
+      if (line.rawImageCrop) {
+        refs.push({
+          id: line.id,
+          kind: "line",
+          rawImageCrop: line.rawImageCrop,
+          confidence: line.confidence,
+        });
+      }
+      for (const formula of line.formulaItems) {
+        if (formula.rawImageCrop) {
+          refs.push({
+            id: formula.id,
+            kind: "formula",
+            rawImageCrop: formula.rawImageCrop,
+            confidence: formula.confidence,
+          });
+        }
+      }
+    }
+  }
+
+  return refs;
+}
+
+function buildDraftOCREditSummary({
+  rawProblemText,
+  rawStepText,
+  confirmedProblemText,
+  confirmedStudentSteps,
+}: {
+  rawProblemText: string;
+  rawStepText: string;
+  confirmedProblemText: string;
+  confirmedStudentSteps: string;
+}) {
+  const rawLines = `${rawProblemText}\n${rawStepText}`
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const confirmedLines = `${confirmedProblemText}\n${confirmedStudentSteps}`
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const maxLength = Math.max(rawLines.length, confirmedLines.length);
+  let changedLineCount = 0;
+  for (let index = 0; index < maxLength; index += 1) {
+    if ((rawLines[index] ?? "") !== (confirmedLines[index] ?? "")) {
+      changedLineCount += 1;
+    }
+  }
+
+  return {
+    rawLineCount: rawLines.length,
+    confirmedLineCount: confirmedLines.length,
+    changedLineCount,
+    changedRatio: maxLength === 0 ? 0 : changedLineCount / maxLength,
+    problemChanged: rawProblemText.trim() !== confirmedProblemText.trim(),
+    stepsChanged: rawStepText.trim() !== confirmedStudentSteps.trim(),
+  };
+}
+
+function computeDraftOCRIssueStats({
+  rawText,
+  confirmedText,
+  lowConfidenceCount,
+  rawCropCount,
+}: {
+  rawText: string;
+  confirmedText: string;
+  lowConfidenceCount: number;
+  rawCropCount: number;
+}) {
+  const text = `${rawText}\n${confirmedText}`;
+  const issues = {
+    spacedLatex: /\bl\s*n\s*x\b|f\s*[’']\s*\(|sin\s+|cos\s+|tan\s+/i.test(text),
+    fullWidthSymbol: /[＜＞＝－，。；：]/.test(text),
+    stepIndexNoise: /[①②③④⑤⑥⑦⑧⑨]|^\s*\d+\s+/m.test(text),
+    deltaOrInequalityNoise: /△|Δ|<=|>=|＜|＞/.test(text),
+    geometryReferenceNoise: /A1|B1|C1|D1|线面角|二面角|截面/.test(text),
+    lowConfidence: lowConfidenceCount > 0,
+    rawCropAvailable: rawCropCount > 0,
+  };
+  const tags = Object.entries(issues)
+    .filter(([, value]) => value)
+    .map(([key]) => key);
+
+  return {
+    ...issues,
+    issueTags: tags,
+    totalIssueCount: tags.length,
+    lowConfidenceCount,
+    rawCropCount,
+  };
 }
 
 function isWorkbenchEvent(value: unknown): value is WorkbenchEvent {

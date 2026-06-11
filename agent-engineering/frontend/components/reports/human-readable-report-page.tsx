@@ -1,8 +1,8 @@
+import type { StudentWorkbenchSummary } from "@/lib/ai/student-workbench-types";
 import {
   buildHumanReadableLearningReports,
   type AudienceLearningReport,
 } from "@/lib/reports/human-readable-learning-report";
-import type { StudentWorkbenchSummary } from "@/lib/ai/student-workbench-types";
 
 const demoSummary: StudentWorkbenchSummary = {
   profile: {
@@ -79,9 +79,12 @@ export function HumanReadableReportPage() {
       <div className="mx-auto grid max-w-6xl gap-6">
         <header>
           <div className="text-muted-foreground text-sm">Math-SEARAG</div>
-          <h1 className="mt-2 font-semibold text-2xl">家长/老师端学习报告</h1>
+          <h1 className="mt-2 font-semibold text-2xl">
+            家长/老师端学习报告
+          </h1>
           <p className="mt-2 max-w-3xl text-muted-foreground text-sm leading-6">
-            这里展示学习结论、孩子最近的变化和下一步建议。报告面向真实沟通场景，不展示工程诊断过程。
+            这里展示学习结论、孩子最近的变化和下一步建议。报告面向真实沟通场景，
+            不展示工程诊断过程。
           </p>
         </header>
         <div className="grid gap-4 lg:grid-cols-2">

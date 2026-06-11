@@ -317,6 +317,7 @@ function PureMultimodalInput({
             imageUrl: attachment.url,
             fileName: attachment.name,
             mimeType: attachment.contentType,
+            chatId,
           }),
         }
       );
@@ -334,11 +335,25 @@ function PureMultimodalInput({
     } finally {
       setDraftOCRLoadingUrl(null);
     }
-  }, []);
+  }, [chatId]);
 
-  const applyDraftOCRToInput = useCallback((confirmedResult: DraftOCRToolResult) => {
+  const applyDraftOCRToInput = useCallback(async (confirmedResult: DraftOCRToolResult) => {
     if ("error" in confirmedResult) {
       return;
+    }
+
+    if (confirmedResult.sampleId) {
+      fetch(
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/learning/draft-ocr-sample`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sampleId: confirmedResult.sampleId,
+            confirmedResult,
+          }),
+        }
+      ).catch(() => null);
     }
 
     const nextText = buildConfirmedDraftPrompt(confirmedResult);
@@ -777,6 +792,11 @@ function DraftOCREditorCard({
             置信度 {Math.round(result.confidence * 100)}% · {result.source} ·
             需重点核对 {lowConfidenceCount || result.lowConfidenceItems.length} 项
           </div>
+          <div className="mt-1 text-muted-foreground leading-5">
+            {result.sampleId
+              ? `样本已进入 OCR 数据飞轮：${result.sampleId.slice(0, 8)}`
+              : "当前仅本地确认，登录并配置数据库后可进入 OCR 数据飞轮。"}
+          </div>
         </div>
         <button
           className="text-muted-foreground transition hover:text-foreground"
@@ -906,6 +926,7 @@ function buildConfirmedDraftPrompt(result: DraftOCRResult) {
     ...(formulas.length
       ? ["【公式 LaTeX 校对】", formulas.map((formula) => `- ${formula}`).join("\n"), ""]
       : []),
+    ...(result.sampleId ? ["【OCR样本ID】", result.sampleId, ""] : []),
     "【OCR确认】",
     result.requiresStudentConfirmation
       ? "我已逐行核对低置信 OCR 内容。请先按这些步骤做首错定位，低置信处需要在证据链中标注。"

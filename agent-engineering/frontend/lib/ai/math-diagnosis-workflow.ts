@@ -41,6 +41,7 @@ export const mathDiagnosisRequestSchema = z.object({
   visualMode: z.literal("html_card").default("html_card"),
   studentId: z.string().trim().optional(),
   chatId: z.string().trim().optional(),
+  draftOCRSampleId: z.string().trim().optional(),
   attemptContext: z
     .object({
       consecutiveFailures: z.number().int().nonnegative().optional(),
@@ -319,6 +320,7 @@ export async function runMathDiagnosisWorkflow(
     await persistMathDiagnosisSession({
       userId: input.studentId,
       chatId: input.chatId,
+      draftOCRSampleId: input.draftOCRSampleId,
       problemText: input.problemText,
       studentSteps: input.studentSteps,
       result: completedResult,
@@ -368,25 +370,36 @@ function throwIfAborted(signal?: AbortSignal) {
 async function persistMathDiagnosisSession({
   userId,
   chatId,
+  draftOCRSampleId,
   problemText,
   studentSteps,
   result,
 }: {
   userId: string;
   chatId?: string;
+  draftOCRSampleId?: string;
   problemText: string;
   studentSteps: string;
   result: MathDiagnosisResult;
 }) {
-  const { saveMathDiagnosisSession } = await import("../db/queries");
+  const { saveMathDiagnosisSession, updateDraftOCRDiagnosisOutcome } =
+    await import("../db/queries");
   try {
-    await saveMathDiagnosisSession({
+    const saved = await saveMathDiagnosisSession({
       userId,
       chatId,
       problemText,
       studentSteps,
       result,
     });
+    if (draftOCRSampleId) {
+      await updateDraftOCRDiagnosisOutcome({
+        userId,
+        sampleId: draftOCRSampleId,
+        diagnosisSessionId: saved?.sessionId,
+        predictedFirstWrongStep: result.firstWrongStep,
+      });
+    }
   } catch (error) {
     console.warn("Failed to persist math diagnosis session", error);
   }

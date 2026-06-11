@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import { createPaddleOCRDraftAdapter } from "@/lib/ai/draft-ocr-adapter";
+import type { DraftOCRToolResult } from "@/lib/ai/draft-ocr-types";
+import { saveDraftOCRRawSample } from "@/lib/db/queries";
 
 export const maxDuration = 60;
 
@@ -10,6 +12,7 @@ const jsonSchema = z.object({
   imageBase64: z.string().min(1).optional(),
   fileName: z.string().max(255).optional(),
   mimeType: z.string().max(128).optional(),
+  chatId: z.string().uuid().optional(),
 });
 
 const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -56,7 +59,14 @@ export async function POST(request: Request) {
       fileName: file.name,
       mimeType: file.type,
     });
-    return NextResponse.json(result);
+    const saved = await saveRawOCRResult({
+      userId: session.user.id,
+      result,
+      fileName: file.name,
+      mimeType: file.type,
+      imageHash: await sha256(buffer),
+    });
+    return NextResponse.json(withSample(result, saved?.id));
   }
 
   const json = await request.json().catch(() => null);
@@ -73,5 +83,71 @@ export async function POST(request: Request) {
   }
 
   const result = await adapter.recognize(parsed.data);
-  return NextResponse.json(result);
+  const saved = await saveRawOCRResult({
+    userId: session.user.id,
+    result,
+    chatId: parsed.data.chatId,
+    imageUrl: parsed.data.imageUrl,
+    fileName: parsed.data.fileName,
+    mimeType: parsed.data.mimeType,
+    imageHash: parsed.data.imageBase64
+      ? await sha256(Buffer.from(parsed.data.imageBase64, "base64"))
+      : undefined,
+  });
+  return NextResponse.json(withSample(result, saved?.id));
+}
+
+async function saveRawOCRResult({
+  userId,
+  result,
+  chatId,
+  imageUrl,
+  fileName,
+  mimeType,
+  imageHash,
+}: {
+  userId: string;
+  result: DraftOCRToolResult;
+  chatId?: string;
+  imageUrl?: string;
+  fileName?: string;
+  mimeType?: string;
+  imageHash?: string;
+}) {
+  if ("error" in result) {
+    return null;
+  }
+
+  return saveDraftOCRRawSample({
+    userId,
+    chatId,
+    imageUrl,
+    fileName,
+    mimeType,
+    imageHash,
+    result,
+  });
+}
+
+function withSample(result: DraftOCRToolResult, sampleId?: string) {
+  if (!sampleId || "error" in result) {
+    return result;
+  }
+
+  return {
+    ...result,
+    sampleId,
+    dataFlywheel: {
+      ...result.dataFlywheel,
+      sampleId,
+      sourceImageUrl: result.dataFlywheel?.sourceImageUrl,
+      rawCropCount: result.dataFlywheel?.rawCropCount,
+      lowConfidenceCount: result.lowConfidenceItems.length,
+    },
+  };
+}
+
+async function sha256(buffer: Buffer) {
+  const { createHash } = await import("node:crypto");
+  return createHash("sha256").update(buffer).digest("hex");
 }

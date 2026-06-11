@@ -21,6 +21,10 @@ export function createDiagnoseMathThinkingTool({
         .array(z.string())
         .describe("Confirmed low-confidence fields or evidence IDs.")
         .optional(),
+      draftOCRSampleId: z
+        .string()
+        .describe("Draft OCR sample id if the problem and steps came from the OCR confirmation editor.")
+        .optional(),
       teachingStyle: z
         .literal("socratic")
         .describe("Teaching style. The first MVP only supports Socratic guidance.")
@@ -34,6 +38,7 @@ export function createDiagnoseMathThinkingTool({
       problemText,
       studentSteps,
       confirmedEvidence,
+      draftOCRSampleId,
       teachingStyle,
       visualMode,
     }) =>
@@ -42,6 +47,7 @@ export function createDiagnoseMathThinkingTool({
         studentSteps,
         studentId,
         chatId,
+        draftOCRSampleId,
         confirmedEvidence,
         teachingStyle: teachingStyle ?? "socratic",
         visualMode: visualMode ?? "html_card",

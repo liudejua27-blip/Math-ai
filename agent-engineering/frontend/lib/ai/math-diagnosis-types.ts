@@ -13,6 +13,7 @@ export type MathDiagnosisRequest = {
   studentSteps: string;
   studentId?: string;
   chatId?: string;
+  draftOCRSampleId?: string;
   confirmedEvidence?: string[];
   teachingStyle?: TeachingStyle;
   visualMode?: VisualMode;

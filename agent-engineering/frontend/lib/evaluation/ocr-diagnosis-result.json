@@ -1,16 +1,59 @@
 {
-  "generatedAt": "2026-06-11T07:42:15.424Z",
+  "generatedAt": "2026-06-11T13:35:07.864Z",
   "samplePolicy": "real_samples_expected",
   "metrics": {
     "totalCases": 3,
     "firstWrongStepAccuracy": 1,
-    "atomRecall": 1
+    "atomRecall": 0.6666666666666666,
+    "issueBreakdown": {
+      "spaced_latex": {
+        "totalCases": 1,
+        "firstWrongStepFailures": 0,
+        "atomFailures": 0,
+        "failureRate": 0
+      },
+      "full_width_symbol": {
+        "totalCases": 2,
+        "firstWrongStepFailures": 0,
+        "atomFailures": 1,
+        "failureRate": 0.5
+      },
+      "step_index_noise": {
+        "totalCases": 2,
+        "firstWrongStepFailures": 0,
+        "atomFailures": 1,
+        "failureRate": 0.5
+      },
+      "delta_inequality_noise": {
+        "totalCases": 1,
+        "firstWrongStepFailures": 0,
+        "atomFailures": 1,
+        "failureRate": 1
+      },
+      "geometry_reference_noise": {
+        "totalCases": 1,
+        "firstWrongStepFailures": 0,
+        "atomFailures": 0,
+        "failureRate": 0
+      },
+      "low_confidence_formula": {
+        "totalCases": 1,
+        "firstWrongStepFailures": 0,
+        "atomFailures": 0,
+        "failureRate": 0
+      }
+    }
   },
   "cases": [
     {
       "caseId": "OCR-D01",
       "topic": "derivative",
       "imageFixtureId": "draft-real-sample-placeholder/derivative-lnx-01.jpg",
+      "noiseTags": [
+        "spaced_latex",
+        "full_width_symbol",
+        "step_index_noise"
+      ],
       "passed": true,
       "firstWrongStep": "S1",
       "detectedAtomIds": [
@@ -30,22 +73,34 @@
       "caseId": "OCR-Q01",
       "topic": "quadratic",
       "imageFixtureId": "draft-real-sample-placeholder/quadratic-parameter-01.jpg",
-      "passed": true,
+      "noiseTags": [
+        "full_width_symbol",
+        "step_index_noise",
+        "delta_inequality_noise"
+      ],
+      "passed": false,
       "firstWrongStep": "S1",
       "detectedAtomIds": [
         "A01",
         "A18",
         "A08",
         "A11",
+        "A42",
         "A48",
         "A49"
       ],
-      "failures": []
+      "failures": [
+        "missing_atom A21"
+      ]
     },
     {
       "caseId": "OCR-G01",
       "topic": "solid_geometry",
       "imageFixtureId": "draft-real-sample-placeholder/cube-line-plane-angle-01.jpg",
+      "noiseTags": [
+        "geometry_reference_noise",
+        "low_confidence_formula"
+      ],
       "passed": true,
       "firstWrongStep": "S2",
       "detectedAtomIds": [
@@ -63,5 +118,5 @@
       "failures": []
     }
   ],
-  "markdownTable": "| Case | Topic | Passed | First Wrong Step | Failures |\n| --- | --- | --- | --- | --- |\n| OCR-D01 | derivative | yes | S1 | - |\n| OCR-Q01 | quadratic | yes | S1 | - |\n| OCR-G01 | solid_geometry | yes | S2 | - |"
+  "markdownTable": "| Case | Topic | OCR Noise | Passed | First Wrong Step | Failures |\n| --- | --- | --- | --- | --- | --- |\n| OCR-D01 | derivative | spaced_latex, full_width_symbol, step_index_noise | yes | S1 | - |\n| OCR-Q01 | quadratic | full_width_symbol, step_index_noise, delta_inequality_noise | no | S1 | missing_atom A21 |\n| OCR-G01 | solid_geometry | geometry_reference_noise, low_confidence_formula | yes | S2 | - |"
 }

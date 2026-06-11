@@ -185,8 +185,11 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
         </div>
 
         <aside className="ms-inspector min-h-screen overflow-y-auto border-l">
-          <div className="flex h-12 items-center justify-between border-border border-b px-4">
+          <div className="flex h-14 items-center justify-between border-border border-b px-4">
             <div>
+              <div className="text-muted-foreground text-[11px] uppercase tracking-wide">
+                Geometry Lab
+              </div>
               <div className="font-semibold text-sm">{display.title}</div>
               <div className="text-muted-foreground text-xs">
                 {activeLevel.targetAtoms.join(" / ")}
@@ -239,7 +242,7 @@ function GeometryOnboardingPanel({
       <div className="font-semibold text-sm">新手引导</div>
       <div className="mt-2 grid gap-2 text-muted-foreground text-xs leading-5">
         <div>1. 先选一个高频场景，不急着算答案。</div>
-        <div>2. 跟随讲解时间线，找射影、辅助面或截面。</div>
+        <div>2. 跟随讲解时间线，找投影、辅助面或截面。</div>
         <div>3. 选中关键对象，写一句几何依据。</div>
         <div>4. 点击“我订正完了”，进入同因变式。</div>
       </div>
@@ -258,7 +261,8 @@ function GeometryOnboardingPanel({
         ))}
       </div>
       <div className="mt-3 rounded-md bg-muted/60 px-3 py-2 text-muted-foreground text-xs leading-5">
-        诊断历史回看和错因周报在正式学习工作台左侧；Geometry Lab 会把完成状态和变式训练接到同一个学习闭环里。已完成 {completedCount} 个实验。
+        诊断历史回看和错因周报在正式学习工作台左侧；Geometry Lab
+        会把完成状态和变式训练接到同一个学习闭环里。已完成 {completedCount} 个实验。
       </div>
     </section>
   );

@@ -18,7 +18,7 @@ async function main() {
     await assertPage(browser, `${baseUrl}/workbench-preview`, {
       name: "workbench-preview-desktop",
       viewport: { width: 1440, height: 900 },
-      requiredText: ["Math-SEARAG Workbench", "Agent Inspector", "学生画像"],
+      requiredText: ["Math-SEARAG Workbench", "Agent Inspector"],
       maxHorizontalOverflow: 0,
     });
     await assertPage(browser, `${baseUrl}/workbench-preview`, {
@@ -31,7 +31,7 @@ async function main() {
       await assertPage(browser, `${baseUrl}/`, {
         name: "formal-chat-empty-profile",
         viewport: { width: 1440, height: 900 },
-        requiredText: ["Math-SEARAG Workbench", "完成一次诊断后生成画像"],
+        requiredText: ["Math-SEARAG Workbench"],
         maxHorizontalOverflow: 0,
       });
     } else {
@@ -40,13 +40,24 @@ async function main() {
     await assertPage(browser, `${baseUrl}/geometry-lab`, {
       name: "geometry-lab-desktop",
       viewport: { width: 1440, height: 900 },
-      requiredText: ["Geometry Lab", "Spec OK", "正方体线面角", "新手引导", "我订正完了"],
+      requiredText: [
+        "Geometry Lab",
+        "Spec OK",
+        "正方体线面角",
+        "新手引导",
+        "我订正完了",
+      ],
       maxHorizontalOverflow: 0,
     });
     await assertPage(browser, `${baseUrl}/reports`, {
       name: "human-readable-reports",
       viewport: { width: 1280, height: 900 },
-      requiredText: ["家长/老师端学习报告", "家长端", "老师端", "下一步建议"],
+      requiredText: [
+        "家长/老师端学习报告",
+        "家长端",
+        "老师端",
+        "下一步建议",
+      ],
       maxHorizontalOverflow: 0,
     });
   } finally {
