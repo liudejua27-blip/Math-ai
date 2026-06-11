@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 import base64
 import os
@@ -16,6 +16,39 @@ class OCRLine:
     text: str
     confidence: float
     box: dict[str, float] | None = None
+    engine: str = "unknown"
+    latex: str | None = None
+
+
+@dataclass(frozen=True)
+class EngineReport:
+    id: str
+    label: str
+    status: str
+    detail: str
+
+
+DEFAULT_OCR_ENGINES = ("pix2text", "paddleocr", "latex_ocr")
+LAYOUT_ENGINE_REPORTS = (
+    EngineReport(
+        "marker",
+        "Marker",
+        "planned",
+        "Planned for full-page document/layout conversion after draft OCR is stable.",
+    ),
+    EngineReport(
+        "surya",
+        "Surya",
+        "planned",
+        "Planned for reading order, line detection, and layout verification.",
+    ),
+    EngineReport(
+        "olmocr",
+        "olmOCR",
+        "planned",
+        "Planned for page-to-Markdown OCR fallback and benchmark comparison.",
+    ),
+)
 
 
 def recognize_draft(payload: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -23,12 +56,20 @@ def recognize_draft(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     if os.environ.get("MATH_DRAFT_OCR_MOCK") == "true":
         return build_result(
             lines=[
-                OCRLine("已知函数 f(x)=xlnx-ax，求参数 a 的取值范围。", 0.91),
-                OCRLine("1. 令 f'(x)=lnx+1-a=0，得到 x=e^(a-1)。", 0.88),
-                OCRLine("2. 所以函数一定有极小值，直接代入。", 0.74),
+                OCRLine("已知函数 f(x)=xlnx-ax，求参数 a 的取值范围。", 0.91, engine="pix2text"),
+                OCRLine("1. 令 f'(x)=lnx+1-a=0，得到 x=e^(a-1)。", 0.88, engine="paddleocr"),
+                OCRLine("2. 所以函数一定有极小值，直接代入。", 0.74, engine="paddleocr"),
+                OCRLine("f'(x)=\\ln x+1-a", 0.86, engine="latex_ocr", latex="f'(x)=\\ln x+1-a"),
             ],
             source="paddleocr_mock",
             warnings=["Mock OCR mode is enabled."],
+            engine_reports=[
+                EngineReport("mock", "Mock OCR", "active", "Mock draft OCR returned deterministic sample lines."),
+                EngineReport("pix2text", "Pix2Text", "completed", "Mocked as mixed text/formula OCR engine."),
+                EngineReport("paddleocr", "PaddleOCR", "completed", "Mocked as Chinese OCR line detector."),
+                EngineReport("latex_ocr", "LaTeX-OCR", "completed", "Mocked as formula recognizer."),
+                *LAYOUT_ENGINE_REPORTS,
+            ],
         )
 
     if not payload.get("image_base64") and not payload.get("image_url"):
@@ -37,29 +78,93 @@ def recognize_draft(payload: dict[str, Any] | None = None) -> dict[str, Any]:
             "message": "Provide image_base64 or image_url for draft OCR.",
         }
 
+    image_path = materialize_image(payload)
+    lines, engine_reports = run_hybrid_ocr(image_path)
+    if not lines:
+        unavailable = [report.detail for report in engine_reports if report.status in {"unavailable", "failed"}]
+        return {
+            "error": "draft_ocr_unavailable",
+            "message": "No OCR engine returned usable draft text. " + " ".join(unavailable[:2]),
+        }
+
+    return build_result(
+        lines=dedupe_lines(lines),
+        source="hybrid",
+        warnings=build_engine_warnings(engine_reports),
+        engine_reports=[*engine_reports, *LAYOUT_ENGINE_REPORTS],
+    )
+
+
+def run_hybrid_ocr(image_path: str) -> tuple[list[OCRLine], list[EngineReport]]:
+    engine_names = tuple(
+        item.strip()
+        for item in os.environ.get("MATH_DRAFT_OCR_ENGINES", ",".join(DEFAULT_OCR_ENGINES)).split(",")
+        if item.strip()
+    )
+    lines: list[OCRLine] = []
+    reports: list[EngineReport] = []
+    for engine_name in engine_names:
+        runner = {
+            "pix2text": run_pix2text,
+            "paddleocr": run_paddleocr,
+            "latex_ocr": run_latex_ocr,
+        }.get(engine_name)
+        if runner is None:
+            reports.append(EngineReport(engine_name, engine_name, "planned", "Engine is not wired into the draft OCR orchestrator yet."))
+            continue
+        try:
+            engine_lines = runner(image_path)
+            lines.extend(engine_lines)
+            reports.append(
+                EngineReport(
+                    engine_name,
+                    engine_label(engine_name),
+                    "completed" if engine_lines else "unavailable",
+                    f"Returned {len(engine_lines)} OCR line(s).",
+                )
+            )
+        except ImportError:
+            reports.append(
+                EngineReport(
+                    engine_name,
+                    engine_label(engine_name),
+                    "unavailable",
+                    install_hint(engine_name),
+                )
+            )
+        except Exception as exc:  # pragma: no cover - defensive optional integrations
+            reports.append(
+                EngineReport(
+                    engine_name,
+                    engine_label(engine_name),
+                    "failed",
+                    f"{engine_label(engine_name)} failed: {exc}",
+                )
+            )
+    return lines, reports
+
+
+def run_pix2text(image_path: str) -> list[OCRLine]:
     try:
-        lines = run_paddleocr(payload)
-    except ImportError:
-        return {
-            "error": "draft_ocr_unavailable",
-            "message": "PaddleOCR is not installed. Install paddleocr and paddlepaddle in the Python OCR backend.",
-        }
-    except Exception as exc:  # pragma: no cover - defensive service boundary
-        return {
-            "error": "draft_ocr_unavailable",
-            "message": f"PaddleOCR failed: {exc}",
-        }
+        from pix2text import Pix2Text  # type: ignore
+    except ImportError as exc:  # pragma: no cover - optional package
+        raise ImportError from exc
 
-    return build_result(lines=lines, source="paddleocr", warnings=[])
+    model = Pix2Text()
+    if hasattr(model, "recognize"):
+        raw_result = model.recognize(image_path)
+    else:  # pragma: no cover - compatibility with possible callable versions
+        raw_result = model(image_path)
+    texts = extract_texts(raw_result)
+    return [OCRLine(text=text, confidence=0.8, engine="pix2text") for text in texts if text.strip()]
 
 
-def run_paddleocr(payload: dict[str, Any]) -> list[OCRLine]:
+def run_paddleocr(image_path: str) -> list[OCRLine]:
     try:
         from paddleocr import PaddleOCR  # type: ignore
     except ImportError as exc:  # pragma: no cover - depends on optional package
         raise ImportError from exc
 
-    image_path = materialize_image(payload)
     ocr = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
     raw_result = ocr.ocr(image_path, cls=True)
     lines: list[OCRLine] = []
@@ -73,8 +178,22 @@ def run_paddleocr(payload: dict[str, Any]) -> list[OCRLine]:
             text = str(text_payload[0]).strip()
             confidence = float(text_payload[1] or 0)
             if text:
-                lines.append(OCRLine(text=text, confidence=confidence, box=box_from_points(box_points)))
+                lines.append(OCRLine(text=text, confidence=confidence, box=box_from_points(box_points), engine="paddleocr"))
     return lines
+
+
+def run_latex_ocr(image_path: str) -> list[OCRLine]:
+    try:
+        from PIL import Image  # type: ignore
+        from pix2tex.cli import LatexOCR  # type: ignore
+    except ImportError as exc:  # pragma: no cover - optional package
+        raise ImportError from exc
+
+    model = LatexOCR()
+    latex = str(model(Image.open(image_path))).strip()
+    if not latex:
+        return []
+    return [OCRLine(text=latex, confidence=0.78, engine="latex_ocr", latex=latex)]
 
 
 def materialize_image(payload: dict[str, Any]) -> str:
@@ -98,6 +217,7 @@ def build_result(
     lines: list[OCRLine],
     source: str,
     warnings: list[str],
+    engine_reports: list[EngineReport] | None = None,
 ) -> dict[str, Any]:
     line_items = [
         {
@@ -105,8 +225,9 @@ def build_result(
             "order": index + 1,
             "text": line.text,
             "confidence": clamp(line.confidence),
+            "engine": line.engine,
             "box": line.box,
-            "formulaItems": formula_items_from_text(line.text, index + 1, line.confidence),
+            "formulaItems": formula_items_from_text(line.text, index + 1, line.confidence, line.engine, line.latex),
         }
         for index, line in enumerate(lines)
     ]
@@ -119,6 +240,7 @@ def build_result(
         "status": "needs_confirmation" if confidence < LOW_CONFIDENCE_THRESHOLD or low_confidence_items else "completed",
         "pageBlocks": blocks,
         "confidence": confidence,
+        "engineReports": [asdict(report) for report in engine_reports or []],
         "lowConfidenceItems": low_confidence_items,
         "extractedProblemText": extract_problem_text(blocks),
         "extractedStudentSteps": extract_student_steps(blocks),
@@ -149,15 +271,16 @@ def build_page_blocks(line_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return blocks
 
 
-def formula_items_from_text(text: str, line_order: int, confidence: float) -> list[dict[str, Any]]:
+def formula_items_from_text(text: str, line_order: int, confidence: float, engine: str, latex: str | None = None) -> list[dict[str, Any]]:
     if not looks_like_formula(text):
         return []
     return [
         {
             "id": f"formula-{line_order}-1",
-            "latex": normalize_formula_text(text),
+            "latex": latex or normalize_formula_text(text),
             "text": text,
             "confidence": clamp(confidence),
+            "engine": engine,
         }
     ]
 
@@ -237,3 +360,68 @@ def extension_from_mime(mime_type: str) -> str:
 
 def clamp(value: float) -> float:
     return max(0.0, min(1.0, round(float(value), 4)))
+
+
+def extract_texts(raw_result: Any) -> list[str]:
+    if raw_result is None:
+        return []
+    if isinstance(raw_result, str):
+        return [line.strip() for line in raw_result.splitlines() if line.strip()]
+    if isinstance(raw_result, dict):
+        texts: list[str] = []
+        for key in ("text", "markdown", "latex"):
+            value = raw_result.get(key)
+            if isinstance(value, str) and value.strip():
+                texts.extend(extract_texts(value))
+        for key in ("items", "blocks", "lines", "result"):
+            value = raw_result.get(key)
+            if value is not None:
+                texts.extend(extract_texts(value))
+        return texts
+    if isinstance(raw_result, (list, tuple)):
+        texts: list[str] = []
+        for item in raw_result:
+            texts.extend(extract_texts(item))
+        return texts
+    return []
+
+
+def dedupe_lines(lines: list[OCRLine]) -> list[OCRLine]:
+    best_by_key: dict[str, OCRLine] = {}
+    for line in lines:
+        key = normalize_dedupe_key(line.text)
+        if not key:
+            continue
+        existing = best_by_key.get(key)
+        if existing is None or line.confidence > existing.confidence:
+            best_by_key[key] = line
+    return list(best_by_key.values())
+
+
+def normalize_dedupe_key(text: str) -> str:
+    return re.sub(r"\s+", "", text).lower()
+
+
+def build_engine_warnings(reports: list[EngineReport]) -> list[str]:
+    warnings: list[str] = []
+    for report in reports:
+        if report.status in {"unavailable", "failed"}:
+            warnings.append(report.detail)
+    return warnings
+
+
+def engine_label(engine_name: str) -> str:
+    return {
+        "pix2text": "Pix2Text",
+        "paddleocr": "PaddleOCR",
+        "latex_ocr": "LaTeX-OCR",
+    }.get(engine_name, engine_name)
+
+
+def install_hint(engine_name: str) -> str:
+    hints = {
+        "pix2text": "Pix2Text is not installed. Install pix2text in the Python OCR backend.",
+        "paddleocr": "PaddleOCR is not installed. Install paddleocr and paddlepaddle in the Python OCR backend.",
+        "latex_ocr": "LaTeX-OCR is not installed. Install pix2tex and Pillow in the Python OCR backend.",
+    }
+    return hints.get(engine_name, f"{engine_name} is not installed.")

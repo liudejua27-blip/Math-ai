@@ -32,6 +32,11 @@ const recommended = [
     expected: "false",
   },
   {
+    name: "MATH_DRAFT_OCR_ENGINES",
+    reason: "sets the draft OCR engine chain",
+    expected: "pix2text,paddleocr,latex_ocr",
+  },
+  {
     name: "MATH_DIAGNOSIS_MODEL",
     reason: "pins the default fast diagnosis model",
     expected: "deepseek/deepseek-v4-flash",

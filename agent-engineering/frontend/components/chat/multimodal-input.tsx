@@ -706,6 +706,26 @@ function DraftOCRConfirmationCard({
         <PreviewField label="题干" value={result.extractedProblemText} />
         <PreviewField label="学生步骤" value={result.extractedStudentSteps} />
       </div>
+      {result.engineReports && result.engineReports.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {result.engineReports.map((engine) => (
+            <span
+              className={cn(
+                "rounded-md border px-2 py-1 text-[11px]",
+                engine.status === "completed" || engine.status === "active"
+                  ? "border-emerald-300/50 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200"
+                  : engine.status === "planned"
+                    ? "border-border bg-muted/40 text-muted-foreground"
+                    : "border-amber-300/50 bg-amber-50 text-amber-800 dark:bg-amber-950/20 dark:text-amber-200"
+              )}
+              key={engine.id}
+              title={engine.detail}
+            >
+              {engine.label}: {engine.status}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="mt-2 text-amber-700 text-xs leading-5 dark:text-amber-300">
         {result.confirmationPrompt}
       </div>

@@ -10,6 +10,7 @@ export type DraftOCRFormulaItem = {
   latex: string;
   text: string;
   confidence: number;
+  engine?: string;
   rawImageCrop?: string;
   box?: DraftOCRBox;
 };
@@ -19,6 +20,7 @@ export type DraftOCRLineItem = {
   order: number;
   text: string;
   confidence: number;
+  engine?: string;
   rawImageCrop?: string;
   box?: DraftOCRBox;
   formulaItems: DraftOCRFormulaItem[];
@@ -35,12 +37,33 @@ export type DraftOCRPageBlock = {
   lineItems: DraftOCRLineItem[];
 };
 
+export type DraftOCREngineReport = {
+  id:
+    | "pix2text"
+    | "paddleocr"
+    | "latex_ocr"
+    | "marker"
+    | "surya"
+    | "olmocr"
+    | "mock";
+  label: string;
+  status: "active" | "completed" | "unavailable" | "planned" | "failed";
+  detail: string;
+};
+
 export type DraftOCRResult = {
   id: string;
-  source: "paddleocr" | "paddleocr_mock" | "unavailable";
+  source:
+    | "hybrid"
+    | "pix2text"
+    | "paddleocr"
+    | "latex_ocr"
+    | "paddleocr_mock"
+    | "unavailable";
   status: "completed" | "needs_confirmation" | "failed";
   pageBlocks: DraftOCRPageBlock[];
   confidence: number;
+  engineReports?: DraftOCREngineReport[];
   lowConfidenceItems: Array<{
     id: string;
     kind: "block" | "line" | "formula";

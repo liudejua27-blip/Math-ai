@@ -96,6 +96,9 @@ function normalizeDraftOCRResult(payload: unknown): DraftOCRResult | DraftOCRErr
     status: requiresStudentConfirmation ? "needs_confirmation" : "completed",
     pageBlocks: Array.isArray(result.pageBlocks) ? result.pageBlocks : [],
     confidence,
+    engineReports: Array.isArray(result.engineReports)
+      ? result.engineReports
+      : [],
     lowConfidenceItems,
     extractedProblemText: String(result.extractedProblemText ?? ""),
     extractedStudentSteps: String(result.extractedStudentSteps ?? ""),
