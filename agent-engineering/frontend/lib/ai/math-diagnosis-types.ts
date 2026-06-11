@@ -80,6 +80,57 @@ export type StepAlignmentDetail = {
   claims: ClaimTrace[];
 };
 
+export type StepVerificationSignal =
+  | "strict_gate"
+  | "claim_trace"
+  | "equivalence_gap"
+  | "condition_gap"
+  | "ocr_noise"
+  | "formal_adapter"
+  | "human_label";
+
+export type StepWrongCandidate = {
+  id: string;
+  stepId: string;
+  claimId: string | null;
+  sentence: string;
+  expression: string | null;
+  claimType: ClaimTrace["claimType"];
+  signals: StepVerificationSignal[];
+  score: number;
+  calibratedConfidence: number;
+  reasons: string[];
+  needsHumanLabel: boolean;
+};
+
+export type StepVerifierDecision = {
+  source: "typescript_step_verifier";
+  selectedStepId: string | null;
+  selectedClaimId: string | null;
+  calibratedConfidence: number;
+  reliability: "high" | "medium" | "low";
+  candidates: StepWrongCandidate[];
+  feedbackSample?: StepVerifierFeedbackSample;
+  notes: string[];
+};
+
+export type StepVerifierFeedbackSample = {
+  sampleId: string;
+  problemText: string;
+  studentSteps: string;
+  predictedStepId: string | null;
+  predictedClaimId: string | null;
+  candidateStepIds: string[];
+  labelStatus: "needs_label" | "confirmed" | "rejected";
+  suggestedLabelFields: Array<
+    | "correctFirstWrongStep"
+    | "correctClaimId"
+    | "misconceptionAtoms"
+    | "missingCondition"
+    | "equivalenceJustification"
+  >;
+};
+
 export type LearnerMemoryGuidance = {
   nextProblemRecommendation: string;
   questionDifficulty: "micro" | "standard" | "transfer" | "challenge";
@@ -148,6 +199,7 @@ export type MathDiagnosisResult = {
   verifierTraces: VerifierTrace[];
   stepAlignmentDetails?: StepAlignmentDetail[];
   claimTraces?: ClaimTrace[];
+  stepVerifierDecision?: StepVerifierDecision;
   learnerMemoryDelta?: LearnerMemoryDelta;
   learnerMemoryGuidance?: LearnerMemoryGuidance;
   remediationPlan?: RemediationPlan;

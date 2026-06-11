@@ -10,6 +10,7 @@ import { updateLearnerMemoryAfterDiagnosis } from "./learner-memory-engine";
 import { buildRemediationPlan } from "./remediation-loop-engine";
 import { runTypeScriptMathDiagnosis } from "./math-rules-engine";
 import { decideSocraticPolicy } from "./socratic-policy-engine";
+import { verifyStudentSteps } from "./step-verifier-engine";
 import { buildVerifierTraces } from "./verifier-trace-engine";
 import {
   applyLearnerMemoryToPolicy,
@@ -145,6 +146,11 @@ export async function runMathDiagnosisWorkflow(
     diagnosis: result,
     rawDiagnosis,
   });
+  const stepVerifierDecision = verifyStudentSteps({
+    request: input,
+    diagnosis: result,
+    claimTraces: stepAlignment.claims,
+  });
   await emit(
     "student_steps_aligned",
     "步骤已对齐",
@@ -156,6 +162,21 @@ export async function runMathDiagnosisWorkflow(
   );
   result = {
     ...result,
+    firstWrongStep: chooseFirstWrongStep(result.firstWrongStep, stepVerifierDecision),
+    firstWrongReason: chooseFirstWrongReason(
+      result.firstWrongStep,
+      result.firstWrongReason,
+      stepVerifierDecision
+    ),
+    confidence: calibrateDiagnosisConfidence(
+      result.confidence,
+      stepVerifierDecision.calibratedConfidence
+    ),
+    needHumanReview:
+      result.needHumanReview ||
+      stepVerifierDecision.reliability !== "high" ||
+      stepVerifierDecision.selectedStepId !== result.firstWrongStep ||
+      Boolean(stepVerifierDecision.feedbackSample),
     misconceptionAtoms: expandMisconceptionAtoms({
       request: input,
       diagnosis: result,
@@ -163,7 +184,17 @@ export async function runMathDiagnosisWorkflow(
     }),
     stepAlignmentDetails: stepAlignment.details,
     claimTraces: stepAlignment.claims,
+    stepVerifierDecision,
   };
+  await emit(
+    "step_verifier_completed",
+    "Step verifier 已完成",
+    stepVerifierDecision.reliability === "high" ? "completed" : "warn",
+    `${stepVerifierDecision.candidates.length} 个候选首错已排序，校准置信度 ${Math.round(
+      stepVerifierDecision.calibratedConfidence * 100
+    )}%。`,
+    { phase: "verification", replayable: true }
+  );
   const socraticQuestions = buildSocraticQuestions(result);
   const verifierTraces = [
     ...buildVerifierTraces({
@@ -640,6 +671,49 @@ function buildMissingStepsResult(problemText: string): MathDiagnosisToolResult {
 function hasLowConfidenceEvidence(result: CoreDiagnosis) {
   return result.evidenceNodes.some(
     (node) => node.type !== "错因原子" && node.confidence < 0.55
+  );
+}
+
+function calibrateDiagnosisConfidence(
+  baseConfidence: number,
+  stepVerifierConfidence: number
+) {
+  if (stepVerifierConfidence <= 0) {
+    return baseConfidence;
+  }
+  return Math.max(
+    0,
+    Math.min(1, baseConfidence * 0.45 + stepVerifierConfidence * 0.55)
+  );
+}
+
+function chooseFirstWrongStep(
+  baseStep: string | null,
+  stepVerifierDecision: MathDiagnosisResult["stepVerifierDecision"]
+) {
+  if (baseStep) {
+    return baseStep;
+  }
+  return stepVerifierDecision?.selectedStepId ?? null;
+}
+
+function chooseFirstWrongReason(
+  baseStep: string | null,
+  baseReason: string | null,
+  stepVerifierDecision: MathDiagnosisResult["stepVerifierDecision"]
+) {
+  if (baseStep && stepVerifierDecision?.selectedStepId !== baseStep) {
+    return [
+      baseReason,
+      `StepVerifier 候选为 ${stepVerifierDecision?.selectedStepId ?? "null"}，与基础诊断不一致，需人工复核。`,
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  return (
+    stepVerifierDecision?.candidates[0]?.reasons.join(" ") ??
+    baseReason
   );
 }
 

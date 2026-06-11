@@ -9,6 +9,7 @@ export type WorkbenchEventType =
   | "typescript_rules_started"
   | "typescript_rules_completed"
   | "student_steps_aligned"
+  | "step_verifier_completed"
   | "strict_gate_checked"
   | "verifier_trace_added"
   | "policy_decided"
@@ -89,6 +90,17 @@ export function buildWorkbenchEventsFromDiagnosis(
       result.firstWrongStep
         ? `第一断点定位到：${result.firstWrongStep}`
         : "暂未发现明确第一断点",
+      { phase: "verification", replayable: true }
+    ),
+    event(
+      "step_verifier_completed",
+      "Step verifier 已完成",
+      result.stepVerifierDecision?.reliability === "high" ? "completed" : "warn",
+      result.stepVerifierDecision
+        ? `${result.stepVerifierDecision.candidates.length} 个候选首错，校准置信度 ${Math.round(
+            result.stepVerifierDecision.calibratedConfidence * 100
+          )}%`
+        : "未生成 step verifier decision",
       { phase: "verification", replayable: true }
     ),
     event(

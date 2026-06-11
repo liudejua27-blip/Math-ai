@@ -13,8 +13,9 @@ async function main() {
   assert.ok(!("error" in derivativeFormula));
   if (!("error" in derivativeFormula)) {
     assert.equal(derivativeFormula.firstWrongStep, "S1");
-    assert.match(derivativeFormula.firstWrongReason ?? "", /step-alignment/);
+    assert.match(derivativeFormula.firstWrongReason ?? "", /求导|等价|候选步骤/);
     assert.ok(derivativeFormula.stepAlignmentDetails?.length);
+    assert.equal(derivativeFormula.stepVerifierDecision?.selectedStepId, "S1");
     assert.ok(derivativeFormula.claimTraces?.some((claim) => claim.stepId === "S1"));
   }
 
