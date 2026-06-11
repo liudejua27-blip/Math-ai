@@ -19,6 +19,7 @@ import {
   useArtifactSelector,
 } from "@/hooks/use-artifact";
 import { AgentInspector } from "@/components/learning-workbench/agent-inspector";
+import { AgentRunRibbon } from "@/components/learning-workbench/agent-run-ribbon";
 import { LearningWorkbenchSidebar } from "@/components/learning-workbench/workbench-sidebar";
 import type { MathDiagnosisToolResult } from "@/lib/ai/math-diagnosis-types";
 import type { MathDiagnosisRequest } from "@/lib/ai/math-diagnosis-types";
@@ -329,6 +330,23 @@ export function ChatShell({
             />
 
             <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-tl-[12px] md:border-t md:border-l md:border-border/40">
+              <AgentRunRibbon
+                liveEvents={liveEvents}
+                onControlAction={handleInspectorControl}
+                onOpenInspector={() => {
+                  setIsMobileInspectorOpen(true);
+                  setWorkbenchLayout((current) => ({
+                    ...current,
+                    inspectorCollapsed: false,
+                  }));
+                }}
+                result={latestDiagnosis}
+                runtimeStatus={getVisibleRuntimeStatus(
+                  liveRuntimeStatus,
+                  status,
+                  latestDiagnosis
+                )}
+              />
               <Messages
                 addToolApprovalResponse={addToolApprovalResponse}
                 chatId={chatId}

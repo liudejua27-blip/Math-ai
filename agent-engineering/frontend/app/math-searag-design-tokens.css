@@ -182,6 +182,76 @@
     box-shadow: var(--ms-shadow-card-soft);
   }
 
+  .ms-runtime-ribbon {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-2xl);
+    background: var(--ms-surface-elevated);
+    box-shadow: var(--ms-shadow-card-soft);
+    backdrop-filter: blur(18px);
+  }
+
+  .ms-agent-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-pill);
+    background: var(--ms-surface-card);
+    color: var(--ms-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    min-height: 28px;
+    padding: 7px 10px;
+    transition:
+      background-color var(--ms-motion-micro),
+      border-color var(--ms-motion-micro),
+      color var(--ms-motion-micro),
+      transform var(--ms-motion-micro);
+  }
+
+  .ms-agent-action:hover {
+    background: var(--ms-surface-hover);
+    border-color: var(--ms-border-strong);
+    color: var(--ms-text);
+  }
+
+  .ms-agent-action:active {
+    transform: scale(0.985);
+  }
+
+  .ms-agent-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .ms-phase-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-pill);
+    background: var(--ms-surface-card);
+    box-shadow: var(--ms-shadow-chip);
+    color: var(--ms-text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 6px 9px;
+  }
+
+  .ms-tool-receipt {
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-lg);
+    background: var(--ms-surface-card);
+    box-shadow: var(--ms-shadow-card-soft);
+  }
+
   .ms-chip,
   .ds-chip {
     display: inline-flex;
