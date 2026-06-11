@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import threading
 import unittest
@@ -57,6 +58,29 @@ class ServerApiTests(unittest.TestCase):
         self.assertTrue(result["student_coach"]["thought_judgement"]["first_wrong_step"])
         self.assertTrue(result["atoms"])
         self.assertTrue(result["strict_checks"])
+
+    def test_draft_ocr_mock_returns_confirmation_result(self):
+        os.environ["MATH_DRAFT_OCR_MOCK"] = "true"
+        try:
+            connection = HTTPConnection("127.0.0.1", self.port, timeout=5)
+            connection.request(
+                "POST",
+                "/api/draft-ocr",
+                body=json.dumps({"image_base64": "mock"}, ensure_ascii=False).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            response = connection.getresponse()
+            body = response.read().decode("utf-8")
+            connection.close()
+        finally:
+            os.environ.pop("MATH_DRAFT_OCR_MOCK", None)
+
+        result = json.loads(body)
+        self.assertEqual(response.status, 200)
+        self.assertTrue(result["pageBlocks"])
+        self.assertIn("lineItems", result["pageBlocks"][0])
+        self.assertIn("formulaItems", result["pageBlocks"][0]["lineItems"][0])
+        self.assertTrue(result["requiresStudentConfirmation"])
 
 
 if __name__ == "__main__":

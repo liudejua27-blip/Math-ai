@@ -24,7 +24,12 @@ const recommended = [
   },
   {
     name: "MATH_AGENT_BACKEND_URL",
-    reason: "connects the TypeScript workflow to the Python verifier service",
+    reason: "connects the TypeScript workflow to the Python verifier and draft OCR service",
+  },
+  {
+    name: "MATH_REQUIRE_DRAFT_OCR",
+    reason: "controls whether draft paper OCR is mandatory before image diagnosis",
+    expected: "false",
   },
   {
     name: "MATH_DIAGNOSIS_MODEL",

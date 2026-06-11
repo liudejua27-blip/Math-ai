@@ -42,6 +42,7 @@ import {
   DEFAULT_CHAT_MODEL,
   type ModelCapabilities,
 } from "@/lib/ai/models";
+import type { DraftOCRToolResult } from "@/lib/ai/draft-ocr-types";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -211,6 +212,10 @@ function PureMultimodalInput({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
+  const [draftOCRResult, setDraftOCRResult] =
+    useState<DraftOCRToolResult | null>(null);
+  const [draftOCRSourceUrl, setDraftOCRSourceUrl] = useState<string | null>(null);
+  const [draftOCRLoadingUrl, setDraftOCRLoadingUrl] = useState<string | null>(null);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
   const [slashIndex, setSlashIndex] = useState(0);
@@ -285,6 +290,56 @@ function PureMultimodalInput({
       toast.error("Failed to upload file, please try again!");
     }
   }, []);
+
+  const recognizeDraft = useCallback(async (attachment: Attachment) => {
+    if (!attachment.contentType?.startsWith("image")) {
+      toast.error("Only image attachments can be recognized as draft paper.");
+      return;
+    }
+
+    setDraftOCRLoadingUrl(attachment.url);
+    setDraftOCRResult(null);
+    setDraftOCRSourceUrl(attachment.url);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/draft-ocr`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageUrl: attachment.url,
+            fileName: attachment.name,
+            mimeType: attachment.contentType,
+          }),
+        }
+      );
+      const result = (await response.json()) as DraftOCRToolResult;
+      setDraftOCRResult(result);
+      if ("error" in result) {
+        toast.error(result.message);
+      }
+    } catch (_error) {
+      toast.error("Draft OCR failed. Please enter the steps manually.");
+      setDraftOCRResult({
+        error: "draft_ocr_unavailable",
+        message: "Draft OCR failed. Please enter the steps manually.",
+      });
+    } finally {
+      setDraftOCRLoadingUrl(null);
+    }
+  }, []);
+
+  const applyDraftOCRToInput = useCallback(() => {
+    if (!draftOCRResult || "error" in draftOCRResult) {
+      return;
+    }
+
+    const nextText = buildConfirmedDraftPrompt(draftOCRResult);
+    setInput(nextText);
+    setLocalStorageInput(nextText);
+    textareaRef.current?.focus();
+  }, [draftOCRResult, setInput, setLocalStorageInput]);
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -445,18 +500,35 @@ function PureMultimodalInput({
             data-testid="attachments-preview"
           >
             {attachments.map((attachment) => (
-              <PreviewAttachment
-                attachment={attachment}
-                key={attachment.url}
-                onRemove={() => {
-                  setAttachments((currentAttachments) =>
-                    currentAttachments.filter((a) => a.url !== attachment.url)
-                  );
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                  }
-                }}
-              />
+              <div className="grid shrink-0 gap-1" key={attachment.url}>
+                <PreviewAttachment
+                  attachment={attachment}
+                  onRemove={() => {
+                    setAttachments((currentAttachments) =>
+                      currentAttachments.filter((a) => a.url !== attachment.url)
+                    );
+                    if (draftOCRSourceUrl === attachment.url) {
+                      setDraftOCRResult(null);
+                      setDraftOCRSourceUrl(null);
+                    }
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = "";
+                    }
+                  }}
+                />
+                {attachment.contentType?.startsWith("image") && (
+                  <button
+                    className="rounded-md border border-border/60 bg-background/80 px-2 py-1 text-[11px] text-muted-foreground transition hover:text-foreground disabled:opacity-60"
+                    disabled={draftOCRLoadingUrl === attachment.url}
+                    onClick={() => recognizeDraft(attachment)}
+                    type="button"
+                  >
+                    {draftOCRLoadingUrl === attachment.url
+                      ? "识别中"
+                      : "识别草稿"}
+                  </button>
+                )}
+              </div>
             ))}
 
             {uploadQueue.map((filename) => (
@@ -471,6 +543,13 @@ function PureMultimodalInput({
               />
             ))}
           </div>
+        )}
+        {draftOCRResult && (
+          <DraftOCRConfirmationCard
+            onApply={applyDraftOCRToInput}
+            onDismiss={() => setDraftOCRResult(null)}
+            result={draftOCRResult}
+          />
         )}
         <PromptInputTextarea
           className="min-h-24 text-[13px] leading-relaxed px-4 pt-3.5 pb-1.5 placeholder:text-muted-foreground/35"
@@ -583,6 +662,93 @@ export const MultimodalInput = memo(
     return true;
   }
 );
+
+function DraftOCRConfirmationCard({
+  result,
+  onApply,
+  onDismiss,
+}: {
+  result: DraftOCRToolResult;
+  onApply: () => void;
+  onDismiss: () => void;
+}) {
+  if ("error" in result) {
+    return (
+      <div className="mx-3 rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-2 text-amber-950 text-xs dark:bg-amber-950/20 dark:text-amber-100">
+        <div className="font-medium">草稿 OCR 暂不可用</div>
+        <div className="mt-1 leading-5">{result.message}</div>
+        <button className="mt-2 underline" onClick={onDismiss} type="button">
+          关闭
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-3 rounded-lg border border-border/70 bg-background/85 px-3 py-2 text-xs shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-semibold">草稿 OCR 结果需要确认</div>
+          <div className="mt-1 text-muted-foreground leading-5">
+            置信度 {Math.round(result.confidence * 100)}% · {result.source} ·
+            低置信项 {result.lowConfidenceItems.length} 个
+          </div>
+        </div>
+        <button
+          className="text-muted-foreground transition hover:text-foreground"
+          onClick={onDismiss}
+          type="button"
+        >
+          关闭
+        </button>
+      </div>
+      <div className="mt-2 grid gap-2 rounded-md bg-muted/35 p-2">
+        <PreviewField label="题干" value={result.extractedProblemText} />
+        <PreviewField label="学生步骤" value={result.extractedStudentSteps} />
+      </div>
+      <div className="mt-2 text-amber-700 text-xs leading-5 dark:text-amber-300">
+        {result.confirmationPrompt}
+      </div>
+      <button
+        className="mt-2 rounded-md bg-foreground px-3 py-1.5 font-medium text-background text-xs"
+        onClick={onApply}
+        type="button"
+      >
+        我已核对，填入输入框
+      </button>
+    </div>
+  );
+}
+
+function PreviewField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="font-medium text-muted-foreground">{label}</div>
+      <div className="mt-1 max-h-20 overflow-y-auto whitespace-pre-wrap leading-5">
+        {value || "未识别到内容，请手动补充。"}
+      </div>
+    </div>
+  );
+}
+
+function buildConfirmedDraftPrompt(
+  result: Exclude<DraftOCRToolResult, { error: string }>
+) {
+  return [
+    "请根据我确认后的草稿 OCR 内容进行数学思维诊断。",
+    "",
+    "【题目】",
+    result.extractedProblemText || "（请在这里补充题目）",
+    "",
+    "【我的解题步骤】",
+    result.extractedStudentSteps || "（请在这里补充自己的解题步骤）",
+    "",
+    "【OCR确认】",
+    result.requiresStudentConfirmation
+      ? "我已核对低置信 OCR 内容，请先按这些步骤做首错定位。"
+      : "OCR 内容已确认。请进行首错定位、错因原子、验证链和同因变式。",
+  ].join("\n");
+}
 
 function PureAttachmentsButton({
   fileInputRef,

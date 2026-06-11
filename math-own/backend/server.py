@@ -8,8 +8,10 @@ from urllib.parse import urlparse
 
 try:
     from .compute_engine import analyze_problem, list_capabilities
+    from .draft_ocr import recognize_draft
 except ImportError:
     from compute_engine import analyze_problem, list_capabilities
+    from draft_ocr import recognize_draft
 
 
 REPORT_STORE: dict[str, dict[str, Any]] = {}
@@ -48,6 +50,12 @@ class MathCoachHandler(BaseHTTPRequestHandler):
             result = analyze_problem(payload)
             REPORT_STORE[result["job_id"]] = result["report"]
             self.write_json(result)
+            return
+        if parsed_url.path == "/api/draft-ocr":
+            payload = self.read_json()
+            result = recognize_draft(payload)
+            status = 400 if result.get("error") == "bad_request" else 200
+            self.write_json(result, status=status)
             return
         self.write_json({"error": "not_found", "path": parsed_url.path}, status=404)
 
