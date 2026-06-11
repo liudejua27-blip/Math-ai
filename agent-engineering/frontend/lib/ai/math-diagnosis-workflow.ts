@@ -19,6 +19,14 @@ import {
   buildStepAlignmentDetails,
   expandMisconceptionAtoms,
 } from "./diagnosis-enhancement-engine";
+import type { WorkbenchEvent } from "./workbench-events";
+import { event as runtimeEvent } from "./workbench-events";
+import {
+  createPythonVerifierAdapter,
+  isRuntimeVerifierBackendError,
+  type RuntimeVerifierAdapter,
+  type RuntimeVerifierBackendError,
+} from "./runtime/verifier-adapter";
 
 export const mathDiagnosisRequestSchema = z.object({
   problemText: z.string().trim().min(1).max(8000),
@@ -47,39 +55,105 @@ type GeneratedDiagnosisFields =
   | "correctionCard";
 type CoreDiagnosis = Omit<MathDiagnosisResult, GeneratedDiagnosisFields>;
 type NormalizedInput = z.infer<typeof mathDiagnosisRequestSchema>;
-type BackendError = Extract<
-  MathDiagnosisToolResult,
-  { error: "math_backend_unavailable" }
->;
+type BackendError = RuntimeVerifierBackendError;
+export type MathDiagnosisWorkflowHooks = {
+  onEvent?: (event: WorkbenchEvent) => void | Promise<void>;
+  signal?: AbortSignal;
+};
 
-const DEFAULT_BACKEND_URL =
-  process.env.MATH_AGENT_BACKEND_URL ?? "http://127.0.0.1:8008";
-const REQUIRE_PYTHON_VERIFIER =
-  process.env.MATH_REQUIRE_PYTHON_VERIFIER === "true";
-const PYTHON_VERIFIER_ENABLED =
-  process.env.MATH_PYTHON_VERIFIER_ENABLED !== "false";
+export type MathDiagnosisWorkflowOptions = {
+  hooks?: MathDiagnosisWorkflowHooks;
+  verifierAdapter?: RuntimeVerifierAdapter;
+};
 
 export async function runMathDiagnosisWorkflow(
-  request: MathDiagnosisRequest
+  request: MathDiagnosisRequest,
+  options: MathDiagnosisWorkflowOptions = {}
 ): Promise<MathDiagnosisToolResult> {
+  const emit = createWorkflowEmitter(options.hooks);
+  await emit("diagnosis_started", "诊断开始", "running", "Math-SEARAG runtime 已接收请求。", {
+    phase: "runtime",
+  });
   const input = normalizeInput(request);
+  await emit("input_normalized", "输入已规范化", "completed", "题目、学生步骤和确认的证据已完成清洗。", {
+    phase: "workflow",
+  });
 
   if (!input.studentSteps.trim()) {
+    await emit("policy_decided", "教学策略已决定", "warn", "学生还没有提供自己的解题步骤，不能进行首错诊断。", {
+      phase: "workflow",
+    });
     return buildMissingStepsResult(input.problemText);
   }
 
-  const pythonVerifierResult = await callPythonVerifier(input);
+  throwIfAborted(options.hooks?.signal);
+  const verifier = options.verifierAdapter ?? createPythonVerifierAdapter();
+  await emit(
+    "python_verifier_started",
+    "Python verifier 开始",
+    "running",
+    `${verifier.name} 正在检查可验证的数学 claim。`,
+    { phase: "tool", toolName: verifier.name }
+  );
+  const verifierStartedAt = performance.now();
+  const pythonVerifierResult = await callPythonVerifier(
+    verifier,
+    input,
+    options.hooks?.signal
+  );
   if (isBackendError(pythonVerifierResult)) {
+    await emit(
+      "python_verifier_failed",
+      "Python verifier 失败",
+      "failed",
+      pythonVerifierResult.message,
+      {
+        phase: "tool",
+        toolName: verifier.name,
+        durationMs: Math.round(performance.now() - verifierStartedAt),
+      }
+    );
     return pythonVerifierResult;
   }
+  await emit(
+    "python_verifier_completed",
+    "Python verifier 完成",
+    pythonVerifierResult ? "completed" : "warn",
+    pythonVerifierResult
+      ? "Python verifier 返回了结构化校验结果。"
+      : "Python verifier 未返回结果，本轮继续使用 TypeScript strict gate。",
+    {
+      phase: "tool",
+      toolName: verifier.name,
+      durationMs: Math.round(performance.now() - verifierStartedAt),
+    }
+  );
 
+  throwIfAborted(options.hooks?.signal);
+  await emit("typescript_rules_started", "TypeScript 规则诊断开始", "running", "正在执行首错定位、错因原子和门禁规则。", {
+    phase: "verification",
+    toolName: "typescript_rules_engine",
+  });
   const rawDiagnosis = runTypeScriptMathDiagnosis(input, pythonVerifierResult);
+  await emit("typescript_rules_completed", "TypeScript 规则诊断完成", "completed", "基础诊断结果已生成。", {
+    phase: "verification",
+    toolName: "typescript_rules_engine",
+  });
   let result = mapBackendResult(rawDiagnosis);
   const stepAlignment = buildStepAlignmentDetails({
     request: input,
     diagnosis: result,
     rawDiagnosis,
   });
+  await emit(
+    "student_steps_aligned",
+    "步骤已对齐",
+    stepAlignment.claims.some((claim) => claim.status === "fail")
+      ? "warn"
+      : "completed",
+    `${stepAlignment.details.length} 个学生步骤、${stepAlignment.claims.length} 个 claim 已对齐。`,
+    { phase: "verification", replayable: true }
+  );
   result = {
     ...result,
     misconceptionAtoms: expandMisconceptionAtoms({
@@ -98,6 +172,13 @@ export async function runMathDiagnosisWorkflow(
     }),
     ...buildClaimVerifierTraces(stepAlignment.claims),
   ];
+  await emit(
+    "verifier_trace_added",
+    "验证链已生成",
+    verifierTraces.some((trace) => trace.status === "fail") ? "warn" : "completed",
+    `${verifierTraces.length} 条 verifier trace 已绑定到证据链。`,
+    { phase: "verification", replayable: true }
+  );
   const basePolicyDecision = decideSocraticPolicy({
     problemText: input.problemText,
     studentSteps: input.studentSteps,
@@ -121,6 +202,15 @@ export async function runMathDiagnosisWorkflow(
         correctionCompleted: Boolean(input.attemptContext?.correctionCompleted),
       })
     : undefined;
+  if (learnerMemoryDelta) {
+    await emit(
+      "learner_memory_delta_ready",
+      "学习画像更新已生成",
+      "completed",
+      `${learnerMemoryDelta.atomUpdates.length} 个错因画像 delta 已生成。`,
+      { phase: "memory" }
+    );
+  }
   const learnerMemoryGuidance = buildLearnerMemoryGuidance({
     learnerMemoryDelta,
     atoms: result.misconceptionAtoms,
@@ -132,6 +222,9 @@ export async function runMathDiagnosisWorkflow(
   const policyDecision = applyLearnerMemoryToPolicy({
     policy: basePolicyDecision,
     guidance: learnerMemoryGuidance,
+  });
+  await emit("policy_decided", "教学策略已决定", "completed", policyDecision.reason, {
+    phase: "workflow",
   });
   const thinkingGraph = buildThinkingGraph(result, input.problemText);
   const completedResult = {
@@ -151,8 +244,24 @@ export async function runMathDiagnosisWorkflow(
       thinkingGraph,
     }),
   };
+  await emit("correction_card_ready", "订正卡已生成", "completed", `${completedResult.correctionCard.blocks.length} 个讲解 block 已生成。`, {
+    phase: "workflow",
+  });
+
+  if (completedResult.remediationPlan) {
+    await emit(
+      "remediation_plan_ready",
+      "训练计划已生成",
+      "completed",
+      `${completedResult.remediationPlan.items.length} 个同因训练项已生成。`,
+      { phase: "workflow" }
+    );
+  }
 
   if (input.studentId) {
+    await emit("persistence_started", "诊断持久化开始", "running", "正在保存 DiagnosisSession、WorkbenchEvent 和 LearnerMemory。", {
+      phase: "persistence",
+    });
     await persistMathDiagnosisSession({
       userId: input.studentId,
       chatId: input.chatId,
@@ -160,9 +269,46 @@ export async function runMathDiagnosisWorkflow(
       studentSteps: input.studentSteps,
       result: completedResult,
     });
+    await emit("persistence_completed", "诊断持久化完成", "completed", "诊断历史、事件和画像更新已写入数据库。", {
+      phase: "persistence",
+    });
   }
 
+  await emit(
+    "diagnosis_completed",
+    "诊断完成",
+    completedResult.needHumanReview ? "warn" : "completed",
+    completedResult.needHumanReview ? "需要人工复核" : "可进入追问、订正和变式训练",
+    { phase: "runtime" }
+  );
+
   return completedResult;
+}
+
+function createWorkflowEmitter(hooks?: MathDiagnosisWorkflowHooks) {
+  return async (
+    type: WorkbenchEvent["type"],
+    title: string,
+    status: WorkbenchEvent["status"],
+    detail: string,
+    options: Parameters<typeof runtimeEvent>[4] = {}
+  ) => {
+    await hooks?.onEvent?.(
+      runtimeEvent(type, title, status, detail, {
+        startedAt:
+          status === "running" ? new Date().toISOString() : options.startedAt,
+        completedAt:
+          status !== "running" ? new Date().toISOString() : options.completedAt,
+        ...options,
+      })
+    );
+  };
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new DOMException("Math diagnosis runtime interrupted.", "AbortError");
+  }
 }
 
 async function persistMathDiagnosisSession({
@@ -203,52 +349,24 @@ function normalizeInput(request: MathDiagnosisRequest): NormalizedInput {
 }
 
 async function callPythonVerifier(
-  input: NormalizedInput
+  verifier: RuntimeVerifierAdapter,
+  input: NormalizedInput,
+  signal?: AbortSignal
 ): Promise<RawDiagnosis | BackendError | null> {
-  if (!PYTHON_VERIFIER_ENABLED) {
-    return null;
-  }
-
-  const response = await fetch(`${DEFAULT_BACKEND_URL}/api/analyze`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      problem_text: input.problemText,
-      student_steps: input.studentSteps,
-      confirmed_evidence: input.confirmedEvidence,
-    }),
-  }).catch(() => null);
-
-  if (!response) {
-    if (!REQUIRE_PYTHON_VERIFIER) {
-      return null;
-    }
-    return {
-      error: "math_backend_unavailable" as const,
-      message:
-        "Python verifier is required but unavailable. Start the Python backend or set MATH_REQUIRE_PYTHON_VERIFIER=false.",
-    };
-  }
-
-  if (!response.ok) {
-    if (!REQUIRE_PYTHON_VERIFIER) {
-      return null;
-    }
-    return {
-      error: "math_backend_unavailable" as const,
-      status: response.status,
-      message:
-        "Python verifier returned an error. Check the Python backend logs.",
-    };
-  }
-
-  return (await response.json()) as RawDiagnosis;
+  return verifier.check(
+    {
+      problemText: input.problemText,
+      studentSteps: input.studentSteps,
+      confirmedEvidence: input.confirmedEvidence,
+    },
+    { signal }
+  );
 }
 
 function isBackendError(
   result: RawDiagnosis | BackendError | null
 ): result is BackendError {
-  return result?.error === "math_backend_unavailable";
+  return isRuntimeVerifierBackendError(result);
 }
 
 function mapBackendResult(backendResult: RawDiagnosis): CoreDiagnosis {

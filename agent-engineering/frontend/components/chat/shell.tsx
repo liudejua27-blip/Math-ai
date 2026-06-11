@@ -21,6 +21,10 @@ import {
 import { AgentInspector } from "@/components/learning-workbench/agent-inspector";
 import { LearningWorkbenchSidebar } from "@/components/learning-workbench/workbench-sidebar";
 import type { MathDiagnosisToolResult } from "@/lib/ai/math-diagnosis-types";
+import type {
+  MathAgentRunStatus,
+  MathAgentRuntimeControlAction,
+} from "@/lib/ai/runtime/math-agent-runtime";
 import type { StudentWorkbenchSummary } from "@/lib/ai/student-workbench-types";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -110,6 +114,28 @@ export function ChatShell({
         ...current,
         rightWidth: clamp(startWidth - (clientX - startX), 300, 760),
       }));
+    });
+  }
+
+  function handleInspectorControl(action: MathAgentRuntimeControlAction) {
+    if (action === "interrupt") {
+      stop();
+      return;
+    }
+
+    if (action === "retry") {
+      regenerate();
+      return;
+    }
+
+    const text = buildInspectorControlMessage(action, latestDiagnosis);
+    if (!text) {
+      return;
+    }
+
+    sendMessage({
+      role: "user" as const,
+      parts: [{ type: "text", text }],
     });
   }
 
@@ -243,6 +269,7 @@ export function ChatShell({
           collapsed={workbenchLayout.inspectorCollapsed}
           exportable
           mobileMode="sidebar"
+          onControlAction={handleInspectorControl}
           onToggle={() =>
             setWorkbenchLayout((current) => ({
               ...current,
@@ -250,6 +277,7 @@ export function ChatShell({
             }))
           }
           result={latestDiagnosis}
+          runtimeStatus={mapChatStatusToRuntimeStatus(status, latestDiagnosis)}
           width={workbenchLayout.rightWidth}
         />
         {isMobileInspectorOpen && (
@@ -257,8 +285,10 @@ export function ChatShell({
             collapsed={false}
             exportable
             mobileMode="drawer"
+            onControlAction={handleInspectorControl}
             onToggle={() => setIsMobileInspectorOpen(false)}
             result={latestDiagnosis}
+            runtimeStatus={mapChatStatusToRuntimeStatus(status, latestDiagnosis)}
           />
         )}
       </div>
@@ -357,6 +387,46 @@ function buildActiveTaskLabel(result: MathDiagnosisToolResult | null) {
   }
 
   return "继续苏格拉底追问";
+}
+
+function mapChatStatusToRuntimeStatus(
+  status: string,
+  result: MathDiagnosisToolResult | null
+): MathAgentRunStatus {
+  if (status === "submitted" || status === "streaming") {
+    return "running";
+  }
+
+  if (status === "error") {
+    return "failed";
+  }
+
+  return result ? "completed" : "idle";
+}
+
+function buildInspectorControlMessage(
+  action: MathAgentRuntimeControlAction,
+  result: MathDiagnosisToolResult | null
+) {
+  const diagnosisId = result && !("error" in result) ? result.jobId : "当前诊断";
+  const firstWrongStep =
+    result && !("error" in result) ? result.firstWrongStep : null;
+
+  const messages: Record<MathAgentRuntimeControlAction, string> = {
+    interrupt: "",
+    resume: "继续刚才的数学诊断流程，请从上一步的证据链继续，不要重新编造结论。",
+    approve_evidence: `我确认 ${diagnosisId} 的证据链基本可信。请基于第一错步${firstWrongStep ? `「${firstWrongStep}」` : ""}继续追问和订正。`,
+    reject_diagnosis:
+      "我不认可当前诊断。请重新对齐我的每一步、每个表达式和 claim，再给出新的第一错步判断。",
+    request_human_review:
+      "我要求人工复核当前数学诊断。请列出需要老师重点检查的证据、门禁和不确定点。",
+    retry:
+      "请基于当前错因继续生成下一道同因变式，并保持苏格拉底追问，不要直接给完整答案。",
+    replay_trace:
+      "请回放本次诊断 trace：按工具调用、Step Alignment、Strict Gate、VerifierTrace、Policy、LearnerMemory 的顺序解释每一步为什么发生。",
+  };
+
+  return messages[action];
 }
 
 function truncate(value: string, maxLength: number) {

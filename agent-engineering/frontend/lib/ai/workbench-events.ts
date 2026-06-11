@@ -2,6 +2,12 @@ import type { MathDiagnosisToolResult } from "./math-diagnosis-types";
 
 export type WorkbenchEventType =
   | "diagnosis_started"
+  | "input_normalized"
+  | "python_verifier_started"
+  | "python_verifier_completed"
+  | "python_verifier_failed"
+  | "typescript_rules_started"
+  | "typescript_rules_completed"
   | "student_steps_aligned"
   | "strict_gate_checked"
   | "verifier_trace_added"
@@ -10,14 +16,44 @@ export type WorkbenchEventType =
   | "learner_memory_delta_ready"
   | "remediation_plan_ready"
   | "geometry_lab_recommended"
+  | "persistence_started"
+  | "persistence_completed"
+  | "runtime_interrupted"
+  | "runtime_resumed"
+  | "runtime_retry_requested"
+  | "runtime_approval_recorded"
+  | "trace_replay_requested"
   | "diagnosis_completed";
+
+export type WorkbenchEventStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "warn"
+  | "blocked"
+  | "failed";
+
+export type WorkbenchEventPhase =
+  | "runtime"
+  | "workflow"
+  | "tool"
+  | "verification"
+  | "memory"
+  | "persistence"
+  | "control";
 
 export type WorkbenchEvent = {
   id: string;
   type: WorkbenchEventType;
   title: string;
-  status: "completed" | "warn" | "blocked";
+  status: WorkbenchEventStatus;
   detail: string;
+  phase?: WorkbenchEventPhase;
+  toolName?: string;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+  replayable?: boolean;
 };
 
 export function buildWorkbenchEventsFromDiagnosis(
@@ -29,8 +65,12 @@ export function buildWorkbenchEventsFromDiagnosis(
 
   if ("error" in result) {
     return [
-      event("diagnosis_started", "已接收题目", "completed", "等待学生补充自己的解题步骤。"),
-      event("policy_decided", "教学策略已决定", "warn", result.message),
+      event("diagnosis_started", "已接收题目", "completed", "等待学生补充自己的解题步骤。", {
+        phase: "workflow",
+      }),
+      event("policy_decided", "教学策略已决定", "warn", result.message, {
+        phase: "workflow",
+      }),
     ];
   }
 
@@ -39,14 +79,17 @@ export function buildWorkbenchEventsFromDiagnosis(
   );
 
   const events: WorkbenchEvent[] = [
-    event("diagnosis_started", "诊断开始", "completed", `job ${result.jobId}`),
+    event("diagnosis_started", "诊断开始", "completed", `job ${result.jobId}`, {
+      phase: "runtime",
+    }),
     event(
       "student_steps_aligned",
       "步骤已对齐",
       result.firstWrongStep ? "warn" : "completed",
       result.firstWrongStep
         ? `第一断点定位到：${result.firstWrongStep}`
-        : "暂未发现明确第一断点"
+        : "暂未发现明确第一断点",
+      { phase: "verification", replayable: true }
     ),
     event(
       "strict_gate_checked",
@@ -54,7 +97,8 @@ export function buildWorkbenchEventsFromDiagnosis(
       failedChecks.length > 0 ? "warn" : "completed",
       failedChecks.length > 0
         ? `${failedChecks.length} 个门禁未通过`
-        : "关键门禁已通过"
+        : "关键门禁已通过",
+      { phase: "verification", replayable: true }
     ),
     event(
       "verifier_trace_added",
@@ -62,7 +106,8 @@ export function buildWorkbenchEventsFromDiagnosis(
       result.verifierTraces.some((trace) => trace.status === "not_checked")
         ? "warn"
         : "completed",
-      `${result.verifierTraces.length} 条 verifier trace`
+      `${result.verifierTraces.length} 条 verifier trace`,
+      { phase: "verification", replayable: true }
     ),
     event(
       "policy_decided",
@@ -70,13 +115,15 @@ export function buildWorkbenchEventsFromDiagnosis(
       result.policyDecision.allowedContent.canShowFullSolution
         ? "completed"
         : "warn",
-      result.policyDecision.reason
+      result.policyDecision.reason,
+      { phase: "workflow" }
     ),
     event(
       "correction_card_ready",
       "订正卡已生成",
       "completed",
-      `${result.correctionCard.blocks.length} 个讲解 block`
+      `${result.correctionCard.blocks.length} 个讲解 block`,
+      { phase: "workflow" }
     ),
   ];
 
@@ -86,7 +133,8 @@ export function buildWorkbenchEventsFromDiagnosis(
         "learner_memory_delta_ready",
         "学习画像更新已生成",
         "completed",
-        `${result.learnerMemoryDelta.atomUpdates.length} 个错因画像变化`
+        `${result.learnerMemoryDelta.atomUpdates.length} 个错因画像变化`,
+        { phase: "memory" }
       )
     );
   }
@@ -97,7 +145,8 @@ export function buildWorkbenchEventsFromDiagnosis(
         "remediation_plan_ready",
         "训练计划已生成",
         "completed",
-        `${result.remediationPlan.items.length} 个同因训练项`
+        `${result.remediationPlan.items.length} 个同因训练项`,
+        { phase: "workflow" }
       )
     );
   }
@@ -108,7 +157,8 @@ export function buildWorkbenchEventsFromDiagnosis(
         "geometry_lab_recommended",
         "几何实验已推荐",
         "completed",
-        `${result.recommendedGeometryLabs.length} 个 Geometry Lab`
+        `${result.recommendedGeometryLabs.length} 个 Geometry Lab`,
+        { phase: "workflow" }
       )
     );
   }
@@ -118,24 +168,37 @@ export function buildWorkbenchEventsFromDiagnosis(
       "diagnosis_completed",
       "诊断完成",
       result.needHumanReview ? "warn" : "completed",
-      result.needHumanReview ? "需要人工复核" : "可进入追问和订正"
+      result.needHumanReview ? "需要人工复核" : "可进入追问和订正",
+      { phase: "runtime" }
     )
   );
 
   return events;
 }
 
-function event(
+export function event(
   type: WorkbenchEventType,
   title: string,
-  status: WorkbenchEvent["status"],
-  detail: string
+  status: WorkbenchEventStatus,
+  detail: string,
+  options: Partial<
+    Pick<
+      WorkbenchEvent,
+      | "phase"
+      | "toolName"
+      | "startedAt"
+      | "completedAt"
+      | "durationMs"
+      | "replayable"
+    >
+  > = {}
 ): WorkbenchEvent {
   return {
-    id: type,
+    id: `${type}-${options.startedAt ?? options.completedAt ?? "static"}`,
     type,
     title,
     status,
     detail,
+    ...options,
   };
 }
