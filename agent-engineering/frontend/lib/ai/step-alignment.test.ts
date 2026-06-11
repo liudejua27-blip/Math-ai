@@ -53,6 +53,25 @@ async function main() {
     );
   }
 
+  const noisyDraft = await runMathDiagnosisWorkflow({
+    problemText: "设 f(x)=ln x-a/x，x>0，求 f'(x)。",
+    studentSteps:
+      "① f’ ( x ) ＝ 1 / x － a\n② 代入 x＝1，得到 f’(1)=1-a",
+    teachingStyle: "socratic",
+    visualMode: "html_card",
+  });
+  assert.ok(!("error" in noisyDraft));
+  if (!("error" in noisyDraft)) {
+    assert.equal(noisyDraft.firstWrongStep, "S1");
+    assert.ok(
+      noisyDraft.claimTraces?.some(
+        (claim) =>
+          claim.stepId === "S1" &&
+          claim.claimType === "equivalence_transform"
+      )
+    );
+  }
+
   console.log("step-alignment tests passed");
 }
 

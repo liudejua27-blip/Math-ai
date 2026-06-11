@@ -1,0 +1,67 @@
+{
+  "generatedAt": "2026-06-11T07:42:15.424Z",
+  "samplePolicy": "real_samples_expected",
+  "metrics": {
+    "totalCases": 3,
+    "firstWrongStepAccuracy": 1,
+    "atomRecall": 1
+  },
+  "cases": [
+    {
+      "caseId": "OCR-D01",
+      "topic": "derivative",
+      "imageFixtureId": "draft-real-sample-placeholder/derivative-lnx-01.jpg",
+      "passed": true,
+      "firstWrongStep": "S1",
+      "detectedAtomIds": [
+        "A07",
+        "A01",
+        "A02",
+        "A10",
+        "A12",
+        "A14",
+        "A18",
+        "A08",
+        "A48"
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "OCR-Q01",
+      "topic": "quadratic",
+      "imageFixtureId": "draft-real-sample-placeholder/quadratic-parameter-01.jpg",
+      "passed": true,
+      "firstWrongStep": "S1",
+      "detectedAtomIds": [
+        "A01",
+        "A18",
+        "A08",
+        "A11",
+        "A48",
+        "A49"
+      ],
+      "failures": []
+    },
+    {
+      "caseId": "OCR-G01",
+      "topic": "solid_geometry",
+      "imageFixtureId": "draft-real-sample-placeholder/cube-line-plane-angle-01.jpg",
+      "passed": true,
+      "firstWrongStep": "S2",
+      "detectedAtomIds": [
+        "A31",
+        "A38",
+        "A01",
+        "A33",
+        "A11",
+        "A32",
+        "A34",
+        "A35",
+        "A47",
+        "A49"
+      ],
+      "failures": []
+    }
+  ],
+  "markdownTable": "| Case | Topic | Passed | First Wrong Step | Failures |\n| --- | --- | --- | --- | --- |\n| OCR-D01 | derivative | yes | S1 | - |\n| OCR-Q01 | quadratic | yes | S1 | - |\n| OCR-G01 | solid_geometry | yes | S2 | - |"
+}

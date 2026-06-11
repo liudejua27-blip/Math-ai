@@ -93,7 +93,7 @@ export function expandMisconceptionAtoms({
   const existing = new Map(
     diagnosis.misconceptionAtoms.map((atomItem) => [atomItem.id, atomItem])
   );
-  const text = `${request.problemText}\n${request.studentSteps}`;
+  const text = normalizeOCRMathText(`${request.problemText}\n${request.studentSteps}`);
   const failedAtomIds = new Set(
     claimTraces
       .filter((claim) => claim.status !== "pass")
@@ -276,10 +276,11 @@ function buildClaimTrace({
   failedChecks: Array<{ id: string; key: string; label: string; reason: string }>;
   firstWrongStep: string | null | undefined;
 }): ClaimTrace {
-  const claimType = classifyClaim(claimText);
-  const atomIds = inferAtomIds(claimText, claimType);
+  const normalizedClaimText = normalizeOCRMathText(claimText);
+  const claimType = classifyClaim(normalizedClaimText);
+  const atomIds = inferAtomIds(normalizedClaimText, claimType);
   const matchedChecks = failedChecks.filter((check) =>
-    claimMatchesCheck(claimText, claimType, check)
+    claimMatchesCheck(normalizedClaimText, claimType, check)
   );
   const isFirstWrongStep = !firstWrongStep || firstWrongStep === stepId;
   const status = matchedChecks.length && isFirstWrongStep ? "fail" : "pass";
@@ -288,7 +289,7 @@ function buildClaimTrace({
     id: `${stepId}-C${claimIndex + 1}`,
     stepId,
     sentence,
-    expression: extractExpression(claimText),
+    expression: extractExpression(normalizedClaimText),
     claimType,
     status,
     atomIds,
@@ -323,16 +324,43 @@ function collectFailedChecks(
     .map(({ status: _status, ...check }) => check);
 }
 
+export function normalizeOCRMathText(text: string) {
+  return text
+    .replace(/[’‘`]/g, "'")
+    .replace(/[−－–—]/g, "-")
+    .replace(/[×＊]/g, "*")
+    .replace(/[÷]/g, "/")
+    .replace(/[，]/g, ",")
+    .replace(/[；]/g, ";")
+    .replace(/[：]/g, ":")
+    .replace(/[（]/g, "(")
+    .replace(/[）]/g, ")")
+    .replace(/[＜]/g, "<")
+    .replace(/[＞]/g, ">")
+    .replace(/[＝]/g, "=")
+    .replace(/[⇒→]/g, "=>")
+    .replace(/[⇔]/g, "<=>")
+    .replace(/\b[I1l]\s*n\s*x\b/gi, "lnx")
+    .replace(/\bln\s+([a-z0-9(])/gi, "ln$1")
+    .replace(/\be\s*\^\s*\(([^)]+)\)/gi, "e^{$1}")
+    .replace(/f\s*[′']/g, "f'")
+    .replace(/\s*([=<>+\-*/^])\s*/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function splitSteps(studentSteps = "") {
   return studentSteps
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.replace(/^\s*S?\d+[:：.)、]?\s*/i, "").trim());
+    .map((line) =>
+      normalizeOCRMathText(line.replace(/^\s*S?\d+[:：.)、]?\s*/i, "").trim())
+    );
 }
 
 function splitClaims(step: string) {
-  const parts = step
+  const parts = normalizeOCRMathText(step)
     .split(/[;；。]/)
     .flatMap((part) => part.split(/(?<=，|,)(?=.*(?:所以|因此|得到|=>|⇒|=|<|>))/))
     .map((part) => part.replace(/[，,]\s*$/, "").trim())
@@ -342,44 +370,46 @@ function splitClaims(step: string) {
 }
 
 function extractExpression(text: string) {
+  const normalized = normalizeOCRMathText(text);
   const match =
-    text.match(/(?:f'\([^)]*\)|[a-zA-Z]\w*(?:_\w+)?\s*[=<>]\s*[^，,;；。]+)/) ??
-    text.match(/(?:sin|cos|tan|ln|log)\s*[^，,;；。]+/i);
+    normalized.match(/(?:f'\([^)]*\)|[a-zA-Z]\w*(?:_\w+)?\s*[=<>]\s*[^，,;；。]+)/) ??
+    normalized.match(/(?:sin|cos|tan|ln|log)\s*[^，,;；。]+/i);
   return match?.[0]?.trim() ?? null;
 }
 
 function classifyClaim(text: string): ClaimTrace["claimType"] {
-  if (/定义域|domain|x\s*[<>]|ln|log|分母/.test(text)) {
+  const normalized = normalizeOCRMathText(text);
+  if (/定义域|domain|x\s*[<>]|ln|log|分母/.test(normalized)) {
     return "domain";
   }
-  if (/分类|参数|恒成立|任意|存在|a\s*[<>]|m\s*[<>]/i.test(text)) {
+  if (/分类|参数|恒成立|任意|存在|a\s*[<>]|m\s*[<>]/i.test(normalized)) {
     return "classification";
   }
-  if (/单调|最值|极值|递增|递减|f'\s*[<>]/i.test(text)) {
+  if (/单调|最值|极值|递增|递减|f'\s*[<>]/i.test(normalized)) {
     return "monotonicity_extremum";
   }
-  if (/切线|斜率|法线|tangent|slope/i.test(text)) {
+  if (/切线|斜率|法线|tangent|slope/i.test(normalized)) {
     return "derivative_geometric_meaning";
   }
-  if (/数列|递推|归纳|通项|a_n|an\+1|n=1/i.test(text)) {
+  if (/数列|递推|归纳|通项|a_n|an\+1|n=1/i.test(normalized)) {
     return "sequence_recursion_induction";
   }
-  if (/椭圆|双曲线|抛物线|焦点|准线|离心率|弦长/i.test(text)) {
+  if (/椭圆|双曲线|抛物线|焦点|准线|离心率|弦长/i.test(normalized)) {
     return "conic_condition_transform";
   }
-  if (/sin|cos|tan|三角|恒等/i.test(text)) {
+  if (/sin|cos|tan|三角|恒等/i.test(normalized)) {
     return "trig_identity_transform";
   }
-  if (/概率|统计|独立|互斥|期望|方差|样本空间/i.test(text)) {
+  if (/概率|统计|独立|互斥|期望|方差|样本空间/i.test(normalized)) {
     return "probability_reading";
   }
-  if (/空间向量|法向量|线面角|二面角|垂直|平行/i.test(text)) {
+  if (/空间向量|法向量|线面角|二面角|垂直|平行/i.test(normalized)) {
     return "geometry_vector_method_mismatch";
   }
-  if (/等价|平方|开方|同乘|取倒数|=>|⇒|⇔|=|<|>/i.test(text)) {
+  if (/等价|平方|开方|同乘|取倒数|=>|⇒|⇔|=|<|>/i.test(normalized)) {
     return "equivalence_transform";
   }
-  if (/直接|所以|显然|易得|答案|结论/.test(text)) {
+  if (/直接|所以|显然|易得|答案|结论/.test(normalized)) {
     return "condition_omission";
   }
   return "proof_step";
@@ -423,7 +453,7 @@ function claimMatchesCheck(
   claimType: ClaimTrace["claimType"],
   check: { key: string; label: string; reason: string }
 ) {
-  const haystack = `${check.key} ${check.label} ${check.reason}`;
+  const haystack = normalizeOCRMathText(`${check.key} ${check.label} ${check.reason}`);
   if (claimType === "domain" && /domain|定义域/.test(haystack)) {
     return true;
   }

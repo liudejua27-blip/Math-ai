@@ -19,6 +19,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -42,7 +43,12 @@ import {
   DEFAULT_CHAT_MODEL,
   type ModelCapabilities,
 } from "@/lib/ai/models";
-import type { DraftOCRToolResult } from "@/lib/ai/draft-ocr-types";
+import type {
+  DraftOCRFormulaItem,
+  DraftOCRPageBlock,
+  DraftOCRResult,
+  DraftOCRToolResult,
+} from "@/lib/ai/draft-ocr-types";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -330,16 +336,16 @@ function PureMultimodalInput({
     }
   }, []);
 
-  const applyDraftOCRToInput = useCallback(() => {
-    if (!draftOCRResult || "error" in draftOCRResult) {
+  const applyDraftOCRToInput = useCallback((confirmedResult: DraftOCRToolResult) => {
+    if ("error" in confirmedResult) {
       return;
     }
 
-    const nextText = buildConfirmedDraftPrompt(draftOCRResult);
+    const nextText = buildConfirmedDraftPrompt(confirmedResult);
     setInput(nextText);
     setLocalStorageInput(nextText);
     textareaRef.current?.focus();
-  }, [draftOCRResult, setInput, setLocalStorageInput]);
+  }, [setInput, setLocalStorageInput]);
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -669,7 +675,7 @@ function DraftOCRConfirmationCard({
   onDismiss,
 }: {
   result: DraftOCRToolResult;
-  onApply: () => void;
+  onApply: (confirmedResult: DraftOCRToolResult) => void;
   onDismiss: () => void;
 }) {
   if ("error" in result) {
@@ -685,13 +691,91 @@ function DraftOCRConfirmationCard({
   }
 
   return (
+    <DraftOCREditorCard
+      onApply={onApply}
+      onDismiss={onDismiss}
+      result={result}
+    />
+  );
+}
+
+type EditableDraftFormula = {
+  id: string;
+  latex: string;
+  confidence: number;
+};
+
+type EditableDraftLine = {
+  id: string;
+  blockId: string;
+  blockType: DraftOCRPageBlock["type"];
+  text: string;
+  confidence: number;
+  formulas: EditableDraftFormula[];
+};
+
+function DraftOCREditorCard({
+  result,
+  onApply,
+  onDismiss,
+}: {
+  result: DraftOCRResult;
+  onApply: (confirmedResult: DraftOCRResult) => void;
+  onDismiss: () => void;
+}) {
+  const initialLines = useMemo(() => buildEditableDraftLines(result), [result]);
+  const [lines, setLines] = useState<EditableDraftLine[]>(initialLines);
+  useEffect(() => {
+    setLines(initialLines);
+  }, [initialLines]);
+  const lowConfidenceCount = lines.filter(
+    (line) =>
+      line.confidence < 0.82 ||
+      line.formulas.some((formula) => formula.confidence < 0.82)
+  ).length;
+
+  const updateLine = useCallback(
+    (lineId: string, patch: Partial<EditableDraftLine>) => {
+      setLines((current) =>
+        current.map((line) =>
+          line.id === lineId ? { ...line, ...patch } : line
+        )
+      );
+    },
+    []
+  );
+
+  const updateFormula = useCallback(
+    (lineId: string, formulaId: string, latex: string) => {
+      setLines((current) =>
+        current.map((line) =>
+          line.id === lineId
+            ? {
+                ...line,
+                formulas: line.formulas.map((formula) =>
+                  formula.id === formulaId ? { ...formula, latex } : formula
+                ),
+              }
+            : line
+        )
+      );
+    },
+    []
+  );
+
+  const confirmedResult = useMemo(
+    () => buildEditedDraftResult(result, lines),
+    [result, lines]
+  );
+
+  return (
     <div className="mx-3 rounded-lg border border-border/70 bg-background/85 px-3 py-2 text-xs shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="font-semibold">草稿 OCR 结果需要确认</div>
+          <div className="font-semibold">草稿 OCR 确认编辑器</div>
           <div className="mt-1 text-muted-foreground leading-5">
             置信度 {Math.round(result.confidence * 100)}% · {result.source} ·
-            低置信项 {result.lowConfidenceItems.length} 个
+            需重点核对 {lowConfidenceCount || result.lowConfidenceItems.length} 项
           </div>
         </div>
         <button
@@ -702,9 +786,70 @@ function DraftOCRConfirmationCard({
           关闭
         </button>
       </div>
-      <div className="mt-2 grid gap-2 rounded-md bg-muted/35 p-2">
-        <PreviewField label="题干" value={result.extractedProblemText} />
-        <PreviewField label="学生步骤" value={result.extractedStudentSteps} />
+      <div className="mt-2 rounded-md border border-amber-300/40 bg-amber-50/60 px-2 py-1.5 text-amber-900 leading-5 dark:bg-amber-950/20 dark:text-amber-200">
+        低置信 OCR 必须先确认。可逐行修改题干、学生步骤和公式 LaTeX，再进入首错定位。
+      </div>
+      <div className="mt-2 grid max-h-72 gap-2 overflow-y-auto rounded-md bg-muted/30 p-2">
+        {lines.map((line) => (
+          <div
+            className={cn(
+              "rounded-md border bg-background/80 p-2",
+              line.confidence < 0.82
+                ? "border-amber-300/60"
+                : "border-border/60"
+            )}
+            key={line.id}
+          >
+            <div className="mb-1.5 flex items-center gap-2">
+              <select
+                className="rounded-md border border-border/70 bg-background px-1.5 py-1 text-[11px]"
+                onChange={(event) =>
+                  updateLine(line.id, {
+                    blockType: event.target.value as DraftOCRPageBlock["type"],
+                  })
+                }
+                value={line.blockType}
+              >
+                <option value="problem">题干</option>
+                <option value="student_step">学生步骤</option>
+                <option value="formula">公式</option>
+                <option value="scratch">草稿备注</option>
+                <option value="unknown">待判断</option>
+              </select>
+              <span className="text-muted-foreground">
+                置信度 {Math.round(line.confidence * 100)}%
+              </span>
+              {line.confidence < 0.82 && (
+                <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                  请核对
+                </span>
+              )}
+            </div>
+            <textarea
+              className="min-h-14 w-full resize-y rounded-md border border-border/60 bg-background px-2 py-1.5 leading-5 outline-none transition focus:border-foreground/50"
+              onChange={(event) => updateLine(line.id, { text: event.target.value })}
+              value={line.text}
+            />
+            {line.formulas.length > 0 && (
+              <div className="mt-2 grid gap-1.5">
+                {line.formulas.map((formula) => (
+                  <label className="grid gap-1" key={formula.id}>
+                    <span className="text-muted-foreground">
+                      公式 LaTeX · 置信度 {Math.round(formula.confidence * 100)}%
+                    </span>
+                    <input
+                      className="rounded-md border border-border/60 bg-background px-2 py-1.5 font-mono text-[12px] outline-none transition focus:border-foreground/50"
+                      onChange={(event) =>
+                        updateFormula(line.id, formula.id, event.target.value)
+                      }
+                      value={formula.latex}
+                    />
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
       </div>
       {result.engineReports && result.engineReports.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -731,29 +876,24 @@ function DraftOCRConfirmationCard({
       </div>
       <button
         className="mt-2 rounded-md bg-foreground px-3 py-1.5 font-medium text-background text-xs"
-        onClick={onApply}
+        onClick={() => onApply(confirmedResult)}
         type="button"
       >
-        我已核对，填入输入框
+        我已逐行核对，填入输入框
       </button>
     </div>
   );
 }
 
-function PreviewField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="font-medium text-muted-foreground">{label}</div>
-      <div className="mt-1 max-h-20 overflow-y-auto whitespace-pre-wrap leading-5">
-        {value || "未识别到内容，请手动补充。"}
-      </div>
-    </div>
-  );
-}
+function buildConfirmedDraftPrompt(result: DraftOCRResult) {
+  const formulas = result.pageBlocks
+    .flatMap((block) =>
+      block.lineItems.flatMap((line) =>
+        line.formulaItems.map((formula) => formula.latex.trim()).filter(Boolean)
+      )
+    )
+    .filter(Boolean);
 
-function buildConfirmedDraftPrompt(
-  result: Exclude<DraftOCRToolResult, { error: string }>
-) {
   return [
     "请根据我确认后的草稿 OCR 内容进行数学思维诊断。",
     "",
@@ -763,11 +903,118 @@ function buildConfirmedDraftPrompt(
     "【我的解题步骤】",
     result.extractedStudentSteps || "（请在这里补充自己的解题步骤）",
     "",
+    ...(formulas.length
+      ? ["【公式 LaTeX 校对】", formulas.map((formula) => `- ${formula}`).join("\n"), ""]
+      : []),
     "【OCR确认】",
     result.requiresStudentConfirmation
-      ? "我已核对低置信 OCR 内容，请先按这些步骤做首错定位。"
+      ? "我已逐行核对低置信 OCR 内容。请先按这些步骤做首错定位，低置信处需要在证据链中标注。"
       : "OCR 内容已确认。请进行首错定位、错因原子、验证链和同因变式。",
   ].join("\n");
+}
+
+function buildEditableDraftLines(result: DraftOCRResult): EditableDraftLine[] {
+  return result.pageBlocks.flatMap((block) =>
+    block.lineItems.length
+      ? block.lineItems.map((line) => ({
+          id: line.id,
+          blockId: block.id,
+          blockType: block.type,
+          text: line.text,
+          confidence: line.confidence,
+          formulas: line.formulaItems.map((formula) => ({
+            id: formula.id,
+            latex: formula.latex,
+            confidence: formula.confidence,
+          })),
+        }))
+      : [
+          {
+            id: `${block.id}-line-1`,
+            blockId: block.id,
+            blockType: block.type,
+            text: block.text,
+            confidence: block.confidence,
+            formulas: [],
+          },
+        ]
+  );
+}
+
+function buildEditedDraftResult(
+  result: DraftOCRResult,
+  lines: EditableDraftLine[]
+): DraftOCRResult {
+  const pageBlocks = lines.map((line, index) =>
+    rebuildDraftLineBlock(result, line, index)
+  );
+  const extractedProblemText = pageBlocks
+    .filter((block) => block.type === "problem")
+    .map((block) => block.text)
+    .filter(Boolean)
+    .join("\n");
+  const extractedStudentSteps = pageBlocks
+    .filter((block) => block.type === "student_step" || block.type === "formula")
+    .map((block) => block.text)
+    .filter(Boolean)
+    .join("\n");
+
+  return {
+    ...result,
+    pageBlocks,
+    status: "needs_confirmation",
+    extractedProblemText,
+    extractedStudentSteps,
+    requiresStudentConfirmation: true,
+    confirmationPrompt: "学生已在确认编辑器中逐行核对 OCR 内容。",
+    lowConfidenceItems: result.lowConfidenceItems,
+  };
+}
+
+function rebuildDraftLineBlock(
+  result: DraftOCRResult,
+  line: EditableDraftLine,
+  index: number
+): DraftOCRPageBlock {
+  const originalBlock = result.pageBlocks.find((block) => block.id === line.blockId);
+  const originalLine = originalBlock?.lineItems.find((item) => item.id === line.id);
+  const formulaItems = line.formulas.map((formula) => {
+    const originalFormula =
+      originalLine?.formulaItems.find((item) => item.id === formula.id) ??
+      ({ id: formula.id, text: formula.latex } as DraftOCRFormulaItem);
+    return {
+      ...originalFormula,
+      latex: formula.latex,
+      text: formula.latex,
+    };
+  });
+
+  return {
+    ...(originalBlock ?? {
+      id: line.blockId,
+      order: index + 1,
+      text: line.text,
+      confidence: line.confidence,
+      lineItems: [],
+    }),
+    id: `${line.blockId}-${line.id}`,
+    type: line.blockType,
+    order: index + 1,
+    text: line.text,
+    confidence: line.confidence,
+    lineItems: [
+      {
+        ...(originalLine ?? {
+          id: line.id,
+          order: index + 1,
+          confidence: line.confidence,
+          formulaItems: [],
+        }),
+        text: line.text,
+        formulaItems,
+      },
+    ],
+  };
 }
 
 function PureAttachmentsButton({

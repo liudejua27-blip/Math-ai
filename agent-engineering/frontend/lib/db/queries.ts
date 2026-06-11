@@ -16,7 +16,11 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import type { ArtifactKind } from "@/components/chat/artifact";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
-import type { MathDiagnosisResult } from "../ai/math-diagnosis-types";
+import type {
+  MathDiagnosisRequest,
+  MathDiagnosisResult,
+  MathDiagnosisToolResult,
+} from "../ai/math-diagnosis-types";
 import type {
   AtomMemoryView,
   DiagnosisHistoryItem,
@@ -37,6 +41,7 @@ import {
   type DBMessage,
   document,
   geometryAttempt,
+  mathAgentRun,
   message,
   remediationRecord,
   type Suggestion,
@@ -753,6 +758,152 @@ export async function saveMathDiagnosisSession({
       "bad_request:database",
       "Failed to save math diagnosis session"
     );
+  }
+}
+
+export async function saveMathAgentRunRecord({
+  runId,
+  status,
+  request,
+  events,
+  result,
+  error,
+  createdAt,
+  updatedAt,
+}: {
+  runId: string;
+  status: string;
+  request: MathDiagnosisRequest;
+  events: WorkbenchEvent[];
+  result?: MathDiagnosisToolResult;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [record] = await db
+      .insert(mathAgentRun)
+      .values({
+        runId,
+        userId: isUuid(request.studentId) ? request.studentId : null,
+        chatId: isUuid(request.chatId) ? request.chatId : null,
+        status,
+        requestJson: request,
+        eventsJson: events,
+        resultJson: result ?? null,
+        errorText: error ?? null,
+        createdAt: new Date(createdAt),
+        updatedAt: new Date(updatedAt),
+        completedAt:
+          status === "completed" || status === "failed" || status === "interrupted"
+            ? new Date(updatedAt)
+            : null,
+      })
+      .returning();
+    return record;
+  } catch (_error) {
+    return null;
+  }
+}
+
+export async function updateMathAgentRunRecord({
+  runId,
+  status,
+  request,
+  events,
+  result,
+  error,
+  updatedAt,
+}: {
+  runId: string;
+  status: string;
+  request: MathDiagnosisRequest;
+  events: WorkbenchEvent[];
+  result?: MathDiagnosisToolResult;
+  error?: string;
+  updatedAt: string;
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [updated] = await db
+      .update(mathAgentRun)
+      .set({
+        status,
+        requestJson: request,
+        eventsJson: events,
+        resultJson: result ?? null,
+        errorText: error ?? null,
+        updatedAt: new Date(updatedAt),
+        completedAt:
+          status === "completed" || status === "failed" || status === "interrupted"
+            ? new Date(updatedAt)
+            : null,
+      })
+      .where(eq(mathAgentRun.runId, runId))
+      .returning();
+
+    if (updated) {
+      return updated;
+    }
+
+    return saveMathAgentRunRecord({
+      runId,
+      status,
+      request,
+      events,
+      result,
+      error,
+      createdAt: updatedAt,
+      updatedAt,
+    });
+  } catch (_error) {
+    return null;
+  }
+}
+
+export async function appendMathAgentRunEvent({
+  runId,
+  request,
+  events,
+  status,
+  updatedAt,
+}: {
+  runId: string;
+  request: MathDiagnosisRequest;
+  events: WorkbenchEvent[];
+  status: string;
+  updatedAt: string;
+}) {
+  return updateMathAgentRunRecord({
+    runId,
+    status,
+    request,
+    events,
+    updatedAt,
+  });
+}
+
+export async function getMathAgentRunRecord(runId: string) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [record] = await db
+      .select()
+      .from(mathAgentRun)
+      .where(eq(mathAgentRun.runId, runId))
+      .limit(1);
+    return record ?? null;
+  } catch (_error) {
+    return null;
   }
 }
 
@@ -1598,6 +1749,15 @@ function getRecordValue(value: unknown, key: string) {
   }
 
   return (value as Record<string, unknown>)[key];
+}
+
+function isUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value
+    )
+  );
 }
 
 function isWorkbenchEvent(value: unknown): value is WorkbenchEvent {

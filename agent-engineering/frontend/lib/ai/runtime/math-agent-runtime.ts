@@ -1,4 +1,9 @@
 import { generateUUID } from "@/lib/utils";
+import {
+  appendMathAgentRunEvent,
+  saveMathAgentRunRecord,
+  updateMathAgentRunRecord,
+} from "@/lib/db/queries";
 import type {
   MathDiagnosisRequest,
   MathDiagnosisToolResult,
@@ -227,6 +232,7 @@ class InProcessMathAgentRuntime implements MathAgentRuntime {
 
     record.events.push(controlEvent);
     record.updatedAt = now;
+    persistRun(record);
     return record;
   }
 
@@ -249,6 +255,7 @@ class InProcessMathAgentRuntime implements MathAgentRuntime {
       updatedAt: now,
     };
     this.runs.set(runId, record);
+    persistRun(record);
     return record;
   }
 
@@ -256,6 +263,7 @@ class InProcessMathAgentRuntime implements MathAgentRuntime {
     const record = this.getExistingRun(runId);
     record.events.push(item);
     record.updatedAt = new Date().toISOString();
+    persistRunEvent(record);
   }
 
   private completeRun(runId: string, result: MathDiagnosisToolResult) {
@@ -264,6 +272,7 @@ class InProcessMathAgentRuntime implements MathAgentRuntime {
     record.result = result;
     record.events = mergeRuntimeEvents(record.events, buildWorkbenchEventsFromDiagnosis(result));
     record.updatedAt = new Date().toISOString();
+    persistRun(record);
     return record;
   }
 
@@ -285,6 +294,7 @@ class InProcessMathAgentRuntime implements MathAgentRuntime {
       )
     );
     record.updatedAt = new Date().toISOString();
+    persistRun(record);
     return record;
   }
 
@@ -310,6 +320,33 @@ export function getMathAgentRuntime(): MathAgentRuntime {
 export function runMathAgentDiagnosis(request: MathDiagnosisRequest) {
   const runtime = getMathAgentRuntime();
   return runtime.diagnose(request);
+}
+
+function persistRun(record: MathAgentRunRecord) {
+  void updateMathAgentRunRecord({
+    runId: record.runId,
+    status: record.status,
+    request: record.request,
+    events: record.events,
+    result: record.result,
+    error: record.error,
+    updatedAt: record.updatedAt,
+  }).then((updated) => {
+    if (updated) {
+      return;
+    }
+    return saveMathAgentRunRecord(record);
+  });
+}
+
+function persistRunEvent(record: MathAgentRunRecord) {
+  void appendMathAgentRunEvent({
+    runId: record.runId,
+    request: record.request,
+    events: record.events,
+    status: record.status,
+    updatedAt: record.updatedAt,
+  });
 }
 
 function createRuntimeQueue<T>() {

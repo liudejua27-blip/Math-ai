@@ -183,6 +183,23 @@ export const workbenchEvent = pgTable("WorkbenchEvent", {
 
 export type DBWorkbenchEvent = InferSelectModel<typeof workbenchEvent>;
 
+export const mathAgentRun = pgTable("MathAgentRun", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  runId: varchar("runId", { length: 128 }).notNull(),
+  userId: uuid("userId").references(() => user.id),
+  chatId: uuid("chatId").references(() => chat.id),
+  status: varchar("status", { length: 32 }).notNull().default("running"),
+  requestJson: json("requestJson").notNull(),
+  eventsJson: json("eventsJson").notNull().default([]),
+  resultJson: json("resultJson"),
+  errorText: text("errorText"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  completedAt: timestamp("completedAt"),
+});
+
+export type MathAgentRun = InferSelectModel<typeof mathAgentRun>;
+
 export const atomMemory = pgTable("AtomMemory", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   studentProfileId: uuid("studentProfileId")
