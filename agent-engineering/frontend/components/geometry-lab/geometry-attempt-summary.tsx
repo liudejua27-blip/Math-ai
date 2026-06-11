@@ -12,8 +12,10 @@ type GeometryAttemptSummaryProps = {
   passed: boolean;
   completed: boolean;
   variantOpen: boolean;
+  saveStatus: "idle" | "saving" | "saved" | "error";
   onCompleteCorrection: () => void;
   onOpenVariant: () => void;
+  onSubmitVariantResult: (success: boolean) => void;
 };
 
 export function GeometryAttemptSummary({
@@ -24,13 +26,15 @@ export function GeometryAttemptSummary({
   passed,
   completed,
   variantOpen,
+  saveStatus,
   onCompleteCorrection,
   onOpenVariant,
+  onSubmitVariantResult,
 }: GeometryAttemptSummaryProps) {
   const passRule = level.scene.assessment.passRule;
 
   return (
-    <section className="border-border border-t bg-muted/25 px-4 py-3">
+    <section className="border-border border-t bg-[var(--ds-bg-canvas)] px-4 py-3">
       <div className="grid gap-3 text-sm lg:grid-cols-[1fr_auto]">
         <div className="grid gap-3 sm:grid-cols-4">
           <Metric label="目标命中" value={`${correctCount}/${level.scene.targets.length}`} />
@@ -43,7 +47,7 @@ export function GeometryAttemptSummary({
             className={cn(
               "rounded-md px-3 py-2 font-medium text-sm transition",
               passed
-                ? "bg-cyan-600 text-white hover:bg-cyan-500"
+                ? "ds-button-primary"
                 : "bg-muted text-muted-foreground"
             )}
             disabled={!passed}
@@ -53,7 +57,7 @@ export function GeometryAttemptSummary({
             我订正完了
           </button>
           <button
-            className="rounded-md border border-border bg-background px-3 py-2 font-medium text-sm transition hover:border-cyan-300"
+            className="ds-button-secondary"
             onClick={onOpenVariant}
             type="button"
           >
@@ -61,12 +65,35 @@ export function GeometryAttemptSummary({
           </button>
         </div>
       </div>
+      {saveStatus !== "idle" && (
+        <div className="mt-2 text-muted-foreground text-xs">
+          {saveStatus === "saving" && "正在写入学习闭环..."}
+          {saveStatus === "saved" && "已写入学习画像和训练记录。"}
+          {saveStatus === "error" && "当前为本地完成状态，登录后可同步到学习画像。"}
+        </div>
+      )}
       {variantOpen && (
-        <div className="mt-3 rounded-md border border-cyan-200/70 bg-cyan-50 px-3 py-2 text-cyan-950 text-sm leading-6 dark:border-cyan-900/70 dark:bg-cyan-950/30 dark:text-cyan-50">
+        <div className="ds-card mt-3 border px-3 py-2 text-sm leading-6">
           <div className="font-medium">变式做题入口</div>
           <div className="mt-1">{display.variantPrompt}</div>
-          <div className="mt-1 text-cyan-900/70 text-xs dark:text-cyan-100/70">
+          <div className="mt-1 text-muted-foreground text-xs">
             {display.completionHint}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              className="ds-button-primary px-3 py-1.5 text-xs"
+              onClick={() => onSubmitVariantResult(true)}
+              type="button"
+            >
+              变式做对了
+            </button>
+            <button
+              className="ds-button-secondary px-3 py-1.5 text-xs"
+              onClick={() => onSubmitVariantResult(false)}
+              type="button"
+            >
+              变式仍需练习
+            </button>
           </div>
         </div>
       )}

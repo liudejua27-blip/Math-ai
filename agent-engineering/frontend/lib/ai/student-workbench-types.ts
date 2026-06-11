@@ -10,6 +10,7 @@ export type AtomMemoryView = {
   mastery: string;
   masteryLabel: string;
   transferRate: number;
+  selfRepairRate: number;
   status: string;
 };
 

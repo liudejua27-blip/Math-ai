@@ -36,6 +36,7 @@ import {
   diagnosisSession,
   type DBMessage,
   document,
+  geometryAttempt,
   message,
   remediationRecord,
   type Suggestion,
@@ -710,6 +711,7 @@ export async function saveMathDiagnosisSession({
           result.learnerMemoryDelta?.atomUpdates.find(
             (item) => item.atomId === atom.id
           )?.transferRate ?? 0,
+        selfRepairRate: 0,
       });
     }
 
@@ -779,12 +781,14 @@ export async function upsertAtomMemory({
   atomLabel,
   mastery,
   transferRate,
+  selfRepairRate,
 }: {
   studentProfileId: string;
   atomId: string;
   atomLabel: string;
   mastery: string;
   transferRate: number;
+  selfRepairRate?: number;
 }) {
   const [existing] = await db
     .select()
@@ -806,6 +810,10 @@ export async function upsertAtomMemory({
         lastSeenAt: new Date(),
         mastery,
         transferRate,
+        selfRepairRate:
+          selfRepairRate === undefined
+            ? existing.selfRepairRate
+            : blendRate(existing.selfRepairRate, selfRepairRate, 0.35),
         status: mastery === "stable" ? "stable" : "active",
         updatedAt: new Date(),
       })
@@ -823,6 +831,7 @@ export async function upsertAtomMemory({
       recurrenceCount: 1,
       mastery,
       transferRate,
+      selfRepairRate: selfRepairRate ?? 0,
       status: mastery === "stable" ? "stable" : "active",
     })
     .returning();
@@ -1018,6 +1027,375 @@ export async function getDiagnosisSessionDetail(
   }
 }
 
+export async function markCorrectionCompleted({
+  userId,
+  atomIds,
+  diagnosisSessionId,
+  remediationRecordId,
+  source = "workbench",
+}: {
+  userId: string;
+  atomIds: string[];
+  diagnosisSessionId?: string | null;
+  remediationRecordId?: string | null;
+  source?: "workbench" | "geometry_lab";
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  const profile = await getOrCreateStudentProfile(userId);
+  const cleanAtomIds = [...new Set(atomIds.filter(Boolean))];
+
+  for (const atomId of cleanAtomIds) {
+    await updateAtomRates({
+      studentProfileId: profile.id,
+      atomId,
+      atomLabel: atomId,
+      selfRepairDelta: 1,
+    });
+  }
+
+  if (remediationRecordId) {
+    await db
+      .update(remediationRecord)
+      .set({
+        result: "self_repaired",
+        selfRepairCompleted: true,
+        completedAt: new Date(),
+        metadataJson: { source },
+      })
+      .where(eq(remediationRecord.id, remediationRecordId));
+  }
+
+  await db
+    .update(studentProfile)
+    .set({
+      weeklyState: "active",
+      masterySummary: {
+        lastCorrectionCompletedAt: new Date().toISOString(),
+        lastCorrectionSource: source,
+        diagnosisSessionId: diagnosisSessionId ?? null,
+        repairedAtoms: cleanAtomIds,
+      },
+      updatedAt: new Date(),
+    })
+    .where(eq(studentProfile.id, profile.id));
+
+  return {
+    studentProfileId: profile.id,
+    repairedAtoms: cleanAtomIds,
+  };
+}
+
+export async function recordRemediationResult({
+  userId,
+  atomIds,
+  variantLevel,
+  variantText,
+  transferSuccess,
+  remediationRecordId,
+  diagnosisSessionId,
+  result = transferSuccess ? "passed" : "failed",
+}: {
+  userId: string;
+  atomIds: string[];
+  variantLevel: number;
+  variantText: string;
+  transferSuccess: boolean;
+  remediationRecordId?: string | null;
+  diagnosisSessionId?: string | null;
+  result?: string;
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  const profile = await getOrCreateStudentProfile(userId);
+  const cleanAtomIds = [...new Set(atomIds.filter(Boolean))];
+  const completedAt = new Date();
+
+  if (remediationRecordId) {
+    await db
+      .update(remediationRecord)
+      .set({
+        result,
+        transferSuccess,
+        completedAt,
+        metadataJson: { source: "variant_result" },
+      })
+      .where(eq(remediationRecord.id, remediationRecordId));
+  } else if (diagnosisSessionId) {
+    await db.insert(remediationRecord).values({
+      diagnosisSessionId,
+      studentProfileId: profile.id,
+      variantLevel,
+      variantText,
+      result,
+      atomIds: cleanAtomIds,
+      transferSuccess,
+      completedAt,
+      metadataJson: { source: "variant_result" },
+    });
+  }
+
+  for (const atomId of cleanAtomIds) {
+    await updateAtomRates({
+      studentProfileId: profile.id,
+      atomId,
+      atomLabel: atomId,
+      transferDelta: transferSuccess ? 1 : 0,
+    });
+  }
+
+  await db
+    .update(studentProfile)
+    .set({
+      weeklyState: "active",
+      masterySummary: {
+        lastVariantCompletedAt: completedAt.toISOString(),
+        lastVariantLevel: variantLevel,
+        lastVariantSuccess: transferSuccess,
+        trainedAtoms: cleanAtomIds,
+      },
+      updatedAt: completedAt,
+    })
+    .where(eq(studentProfile.id, profile.id));
+
+  return {
+    studentProfileId: profile.id,
+    trainedAtoms: cleanAtomIds,
+    transferSuccess,
+  };
+}
+
+export async function saveGeometryAttempt({
+  userId,
+  levelId,
+  sceneSpecId,
+  targetAtoms,
+  selectedRefs,
+  correctCount,
+  passed,
+  reasonText,
+  correctionCompleted,
+  variantAttempted = false,
+  variantSuccess = false,
+  variantText,
+  diagnosisSessionId,
+  remediationRecordId,
+  metadata = {},
+}: {
+  userId: string;
+  levelId: string;
+  sceneSpecId?: string | null;
+  targetAtoms: string[];
+  selectedRefs: string[];
+  correctCount: number;
+  passed: boolean;
+  reasonText?: string;
+  correctionCompleted: boolean;
+  variantAttempted?: boolean;
+  variantSuccess?: boolean;
+  variantText?: string;
+  diagnosisSessionId?: string | null;
+  remediationRecordId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  const profile = await getOrCreateStudentProfile(userId);
+  const now = new Date();
+  const cleanAtoms = [...new Set(targetAtoms.filter(Boolean))];
+  const [attempt] = await db
+    .insert(geometryAttempt)
+    .values({
+      userId,
+      studentProfileId: profile.id,
+      diagnosisSessionId: diagnosisSessionId ?? null,
+      remediationRecordId: remediationRecordId ?? null,
+      levelId,
+      sceneSpecId: sceneSpecId ?? null,
+      targetAtomsJson: cleanAtoms,
+      selectedRefsJson: selectedRefs,
+      correctCount,
+      passed,
+      correctionCompleted,
+      variantAttempted,
+      variantSuccess,
+      reasonText,
+      variantText,
+      metadataJson: metadata,
+      updatedAt: now,
+      completedAt: correctionCompleted || variantAttempted ? now : null,
+    })
+    .returning();
+
+  if (correctionCompleted) {
+    await markCorrectionCompleted({
+      userId,
+      atomIds: cleanAtoms,
+      diagnosisSessionId,
+      remediationRecordId,
+      source: "geometry_lab",
+    });
+  }
+
+  if (variantAttempted) {
+    await recordRemediationResult({
+      userId,
+      atomIds: cleanAtoms,
+      variantLevel: inferGeometryVariantLevel(levelId),
+      variantText: variantText ?? `Geometry Lab ${levelId} 同因变式`,
+      transferSuccess: variantSuccess,
+      remediationRecordId,
+      diagnosisSessionId,
+      result: variantSuccess ? "geometry_variant_passed" : "geometry_variant_failed",
+    });
+  }
+
+  return {
+    attemptId: attempt.id,
+    studentProfileId: profile.id,
+    targetAtoms: cleanAtoms,
+  };
+}
+
+export async function generateWeeklyLearningReportForUser({
+  userId,
+  weekStart = getWeekStart(new Date()),
+}: {
+  userId: string;
+  weekStart?: Date;
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  const profile = await getOrCreateStudentProfile(userId);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+
+  const [atoms, diagnoses, remediation, geometryAttempts, existingReports] =
+    await Promise.all([
+      db
+        .select()
+        .from(atomMemory)
+        .where(eq(atomMemory.studentProfileId, profile.id))
+        .orderBy(desc(atomMemory.recurrenceCount), desc(atomMemory.updatedAt))
+        .limit(12),
+      db
+        .select()
+        .from(diagnosisSession)
+        .where(
+          and(
+            eq(diagnosisSession.userId, userId),
+            gte(diagnosisSession.createdAt, weekStart),
+            lt(diagnosisSession.createdAt, weekEnd)
+          )
+        )
+        .orderBy(desc(diagnosisSession.createdAt)),
+      db
+        .select()
+        .from(remediationRecord)
+        .where(
+          and(
+            eq(remediationRecord.studentProfileId, profile.id),
+            gte(remediationRecord.createdAt, weekStart),
+            lt(remediationRecord.createdAt, weekEnd)
+          )
+        ),
+      db
+        .select()
+        .from(geometryAttempt)
+        .where(
+          and(
+            eq(geometryAttempt.studentProfileId, profile.id),
+            gte(geometryAttempt.createdAt, weekStart),
+            lt(geometryAttempt.createdAt, weekEnd)
+          )
+        ),
+      db
+        .select()
+        .from(weeklyLearningReport)
+        .where(
+          and(
+            eq(weeklyLearningReport.studentProfileId, profile.id),
+            eq(weeklyLearningReport.weekStart, weekStart)
+          )
+        )
+        .limit(1),
+    ]);
+
+  const topRecurringAtoms = atoms.slice(0, 6).map(mapAtomMemoryView);
+  const transferAttempts = remediation.filter((item) => item.result !== "planned");
+  const transferSuccessCount = transferAttempts.filter(
+    (item) => item.transferSuccess
+  ).length;
+  const correctionCount = remediation.filter(
+    (item) => item.selfRepairCompleted
+  ).length;
+  const geometryCompletedCount = geometryAttempts.filter(
+    (item) => item.correctionCompleted
+  ).length;
+  const recommendedPlan = buildWeeklyRecommendedPlan(atoms);
+  const summary = {
+    diagnosisCount: diagnoses.length,
+    correctionCount,
+    transferAttemptCount: transferAttempts.length,
+    transferSuccessRate:
+      transferAttempts.length === 0
+        ? 0
+        : transferSuccessCount / transferAttempts.length,
+    geometryCompletedCount,
+    weakAtomCount: atoms.filter((item) => item.mastery !== "stable").length,
+    generatedAt: new Date().toISOString(),
+  };
+
+  const existing = existingReports[0];
+  if (existing) {
+    const [updated] = await db
+      .update(weeklyLearningReport)
+      .set({
+        summaryJson: summary,
+        topRecurringAtomsJson: topRecurringAtoms,
+        recommendedPlanJson: recommendedPlan,
+      })
+      .where(eq(weeklyLearningReport.id, existing.id))
+      .returning();
+    return updated;
+  }
+
+  const [created] = await db
+    .insert(weeklyLearningReport)
+    .values({
+      studentProfileId: profile.id,
+      weekStart,
+      summaryJson: summary,
+      topRecurringAtomsJson: topRecurringAtoms,
+      recommendedPlanJson: recommendedPlan,
+    })
+    .returning();
+  return created;
+}
+
+export async function generateWeeklyLearningReportsForAllUsers() {
+  if (!databaseConfigured()) {
+    return { generated: 0 };
+  }
+
+  const profiles = await db.select().from(studentProfile);
+  let generated = 0;
+  for (const profile of profiles) {
+    await generateWeeklyLearningReportForUser({ userId: profile.userId });
+    generated += 1;
+  }
+
+  return { generated };
+}
+
 function mapDiagnosisHistoryItem(
   session: typeof diagnosisSession.$inferSelect
 ): DiagnosisHistoryItem {
@@ -1051,8 +1429,77 @@ function mapAtomMemoryView(
     mastery: atom.mastery,
     masteryLabel: getMasteryLabel(atom),
     transferRate: atom.transferRate,
+    selfRepairRate: atom.selfRepairRate,
     status: atom.status,
   };
+}
+
+async function updateAtomRates({
+  studentProfileId,
+  atomId,
+  atomLabel,
+  selfRepairDelta,
+  transferDelta,
+}: {
+  studentProfileId: string;
+  atomId: string;
+  atomLabel: string;
+  selfRepairDelta?: number;
+  transferDelta?: number;
+}) {
+  const [existing] = await db
+    .select()
+    .from(atomMemory)
+    .where(
+      and(
+        eq(atomMemory.studentProfileId, studentProfileId),
+        eq(atomMemory.atomId, atomId)
+      )
+    )
+    .limit(1);
+
+  if (!existing) {
+    const [created] = await db
+      .insert(atomMemory)
+      .values({
+        studentProfileId,
+        atomId,
+        atomLabel,
+        recurrenceCount: 0,
+        mastery: transferDelta ? "improving" : "weak",
+        transferRate: transferDelta ?? 0,
+        selfRepairRate: selfRepairDelta ?? 0,
+        status: transferDelta || selfRepairDelta ? "active" : "planned",
+      })
+      .returning();
+    return created;
+  }
+
+  const nextTransferRate =
+    transferDelta === undefined
+      ? existing.transferRate
+      : blendRate(existing.transferRate, transferDelta, 0.35);
+  const nextSelfRepairRate =
+    selfRepairDelta === undefined
+      ? existing.selfRepairRate
+      : blendRate(existing.selfRepairRate, selfRepairDelta, 0.4);
+  const [updated] = await db
+    .update(atomMemory)
+    .set({
+      atomLabel,
+      transferRate: nextTransferRate,
+      selfRepairRate: nextSelfRepairRate,
+      mastery: inferMasteryFromRates({
+        transferRate: nextTransferRate,
+        selfRepairRate: nextSelfRepairRate,
+        recurrenceCount: existing.recurrenceCount,
+      }),
+      status: nextTransferRate >= 0.7 && nextSelfRepairRate >= 0.7 ? "stable" : "active",
+      updatedAt: new Date(),
+    })
+    .where(eq(atomMemory.id, existing.id))
+    .returning();
+  return updated;
 }
 
 function getMasteryLabel(atom: typeof atomMemory.$inferSelect) {
@@ -1065,6 +1512,68 @@ function getMasteryLabel(atom: typeof atomMemory.$inferSelect) {
   }
 
   return "正在修复";
+}
+
+function blendRate(current: number, sample: number, weight: number) {
+  return Math.max(0, Math.min(1, current * (1 - weight) + sample * weight));
+}
+
+function inferMasteryFromRates({
+  transferRate,
+  selfRepairRate,
+  recurrenceCount,
+}: {
+  transferRate: number;
+  selfRepairRate: number;
+  recurrenceCount: number;
+}) {
+  if (transferRate >= 0.72 && selfRepairRate >= 0.72 && recurrenceCount <= 2) {
+    return "stable";
+  }
+
+  if (transferRate >= 0.45 || selfRepairRate >= 0.55) {
+    return "improving";
+  }
+
+  return "weak";
+}
+
+function inferGeometryVariantLevel(levelId: string) {
+  if (levelId.includes("G2")) {
+    return 3;
+  }
+  if (levelId.includes("G1-6")) {
+    return 2;
+  }
+  return 1;
+}
+
+function getWeekStart(date: Date) {
+  const value = new Date(date);
+  const day = value.getDay() || 7;
+  value.setHours(0, 0, 0, 0);
+  value.setDate(value.getDate() - day + 1);
+  return value;
+}
+
+function buildWeeklyRecommendedPlan(atoms: Array<typeof atomMemory.$inferSelect>) {
+  const weakAtoms = atoms
+    .filter((atom) => atom.mastery !== "stable")
+    .slice(0, 4);
+
+  if (weakAtoms.length === 0) {
+    return ["保持每周 2 次综合复盘，优先做迁移变式。"];
+  }
+
+  return weakAtoms.map((atom) => {
+    if (atom.selfRepairRate < 0.45) {
+      return `先完成 ${atom.atomId} 的订正复盘，再做 1 道表层变式。`;
+    }
+    if (atom.transferRate < 0.45) {
+      return `围绕 ${atom.atomId} 做 2 道结构/迁移变式，重点检查是否换题仍会。`;
+    }
+    return `复查 ${atom.atomId}，用 1 道 Boss 综合题确认稳定掌握。`;
+  });
 }
 
 function compactPreview(text: string) {

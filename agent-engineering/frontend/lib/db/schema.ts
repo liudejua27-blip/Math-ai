@@ -194,6 +194,7 @@ export const atomMemory = pgTable("AtomMemory", {
   lastSeenAt: timestamp("lastSeenAt").notNull().defaultNow(),
   mastery: varchar("mastery", { length: 32 }).notNull().default("weak"),
   transferRate: real("transferRate").notNull().default(0),
+  selfRepairRate: real("selfRepairRate").notNull().default(0),
   status: varchar("status", { length: 32 }).notNull().default("active"),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });
@@ -213,10 +214,46 @@ export const remediationRecord = pgTable("RemediationRecord", {
   result: varchar("result", { length: 32 }).notNull().default("planned"),
   atomIds: json("atomIds").notNull().default([]),
   transferSuccess: boolean("transferSuccess").notNull().default(false),
+  selfRepairCompleted: boolean("selfRepairCompleted").notNull().default(false),
+  completedAt: timestamp("completedAt"),
+  metadataJson: json("metadataJson").notNull().default({}),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
 export type RemediationRecord = InferSelectModel<typeof remediationRecord>;
+
+export const geometryAttempt = pgTable("GeometryAttempt", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  studentProfileId: uuid("studentProfileId")
+    .notNull()
+    .references(() => studentProfile.id),
+  diagnosisSessionId: uuid("diagnosisSessionId").references(
+    () => diagnosisSession.id
+  ),
+  remediationRecordId: uuid("remediationRecordId").references(
+    () => remediationRecord.id
+  ),
+  levelId: varchar("levelId", { length: 64 }).notNull(),
+  sceneSpecId: varchar("sceneSpecId", { length: 128 }),
+  targetAtomsJson: json("targetAtomsJson").notNull().default([]),
+  selectedRefsJson: json("selectedRefsJson").notNull().default([]),
+  correctCount: integer("correctCount").notNull().default(0),
+  passed: boolean("passed").notNull().default(false),
+  correctionCompleted: boolean("correctionCompleted").notNull().default(false),
+  variantAttempted: boolean("variantAttempted").notNull().default(false),
+  variantSuccess: boolean("variantSuccess").notNull().default(false),
+  reasonText: text("reasonText"),
+  variantText: text("variantText"),
+  metadataJson: json("metadataJson").notNull().default({}),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  completedAt: timestamp("completedAt"),
+});
+
+export type GeometryAttempt = InferSelectModel<typeof geometryAttempt>;
 
 export const weeklyLearningReport = pgTable("WeeklyLearningReport", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),

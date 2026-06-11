@@ -32,6 +32,9 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
   const [completedLevelIds, setCompletedLevelIds] = useState<string[]>([]);
   const [variantOpen, setVariantOpen] = useState(false);
   const [activeTimelineId, setActiveTimelineId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
 
   const activeLevel = useMemo(
     () =>
@@ -60,6 +63,7 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
     setReasonText("");
     setVariantOpen(false);
     setActiveTimelineId(null);
+    setSaveStatus("idle");
   }
 
   function toggleRef(refId: string) {
@@ -77,7 +81,7 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
     }
   }
 
-  function completeCorrection() {
+  async function completeCorrection() {
     if (!passed) {
       return;
     }
@@ -87,10 +91,68 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
         : [...current, activeLevel.levelId]
     );
     setVariantOpen(true);
+    await persistGeometryAttempt({
+      correctionCompleted: true,
+      variantAttempted: false,
+      variantSuccess: false,
+    });
+  }
+
+  async function submitVariantResult(success: boolean) {
+    await persistGeometryAttempt({
+      correctionCompleted: completed || passed,
+      variantAttempted: true,
+      variantSuccess: success,
+    });
+    if (success) {
+      setCompletedLevelIds((current) =>
+        current.includes(activeLevel.levelId)
+          ? current
+          : [...current, activeLevel.levelId]
+      );
+    }
+  }
+
+  async function persistGeometryAttempt({
+    correctionCompleted,
+    variantAttempted,
+    variantSuccess,
+  }: {
+    correctionCompleted: boolean;
+    variantAttempted: boolean;
+    variantSuccess: boolean;
+  }) {
+    setSaveStatus("saving");
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/learning/geometry-attempt`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          levelId: activeLevel.levelId,
+          sceneSpecId: activeLevel.sceneSpecId ?? activeLevel.scene.sceneId,
+          targetAtoms: activeLevel.targetAtoms,
+          selectedRefs,
+          correctCount,
+          passed,
+          reasonText,
+          correctionCompleted,
+          variantAttempted,
+          variantSuccess,
+          variantText: display.variantPrompt,
+          metadata: {
+            displayTitle: display.title,
+            activeTimelineId,
+          },
+        }),
+      }
+    ).catch(() => null);
+
+    setSaveStatus(response?.ok ? "saved" : "error");
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="ds-workbench-shell min-h-screen">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[280px_minmax(420px,1fr)_360px]">
         <GeometryLevelMap
           activeLevelId={activeLevel.levelId}
@@ -114,13 +176,15 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
             level={activeLevel}
             onCompleteCorrection={completeCorrection}
             onOpenVariant={() => setVariantOpen((value) => !value)}
+            onSubmitVariantResult={submitVariantResult}
             passed={passed}
+            saveStatus={saveStatus}
             selectedRefs={selectedRefs}
             variantOpen={variantOpen}
           />
         </div>
 
-        <aside className="min-h-screen overflow-y-auto border-border border-l bg-muted/15">
+        <aside className="ds-inspector min-h-screen overflow-y-auto border-l">
           <div className="flex h-12 items-center justify-between border-border border-b px-4">
             <div>
               <div className="font-semibold text-sm">{display.title}</div>

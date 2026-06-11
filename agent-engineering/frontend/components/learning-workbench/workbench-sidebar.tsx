@@ -100,6 +100,9 @@ export function LearningWorkbenchSidebar({
                     复发 {atom.recurrenceCount} 次 · 迁移率{" "}
                     {Math.round(atom.transferRate * 100)}%
                   </div>
+                  <div className="mt-1 text-muted-foreground text-[11px]">
+                    订正率 {Math.round(atom.selfRepairRate * 100)}%
+                  </div>
                 </div>
               ))}
             </div>
