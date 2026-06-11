@@ -7,6 +7,10 @@ import type {
   MathThinkingGraphSpec,
 } from "./math-diagnosis-types";
 import { updateLearnerMemoryAfterDiagnosis } from "./learner-memory-engine";
+import {
+  buildLayeredVerifierReport,
+  buildLayeredVerifierTraces,
+} from "./layered-verifier-engine";
 import { buildRemediationPlan } from "./remediation-loop-engine";
 import { runTypeScriptMathDiagnosis } from "./math-rules-engine";
 import { decideSocraticPolicy } from "./socratic-policy-engine";
@@ -196,13 +200,31 @@ export async function runMathDiagnosisWorkflow(
     { phase: "verification", replayable: true }
   );
   const socraticQuestions = buildSocraticQuestions(result);
+  const layeredVerifierReport = buildLayeredVerifierReport({
+    request: input,
+    diagnosis: result,
+    claimTraces: stepAlignment.claims,
+    pythonVerifier: pythonVerifierResult,
+  });
   const verifierTraces = [
     ...buildVerifierTraces({
       strictChecks: result.strictChecks,
       pythonVerifier: pythonVerifierResult,
     }),
     ...buildClaimVerifierTraces(stepAlignment.claims),
+    ...buildLayeredVerifierTraces(layeredVerifierReport),
   ];
+  await emit(
+    "layered_verifier_completed",
+    "三层 verifier 已完成",
+    layeredVerifierReport.overallStatus === "fail"
+      ? "failed"
+      : layeredVerifierReport.overallStatus === "warn"
+        ? "warn"
+        : "completed",
+    `轻量/中量/重量 verifier 已生成报告，formal 候选 ${layeredVerifierReport.formalReviewPlan.candidateClaims.length} 个。`,
+    { phase: "verification", replayable: true }
+  );
   await emit(
     "verifier_trace_added",
     "验证链已生成",
@@ -263,6 +285,7 @@ export async function runMathDiagnosisWorkflow(
     socraticQuestions,
     policyDecision,
     verifierTraces,
+    layeredVerifierReport,
     learnerMemoryDelta,
     learnerMemoryGuidance,
     remediationPlan,

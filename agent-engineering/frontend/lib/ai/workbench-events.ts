@@ -10,6 +10,7 @@ export type WorkbenchEventType =
   | "typescript_rules_completed"
   | "student_steps_aligned"
   | "step_verifier_completed"
+  | "layered_verifier_completed"
   | "strict_gate_checked"
   | "verifier_trace_added"
   | "policy_decided"
@@ -101,6 +102,19 @@ export function buildWorkbenchEventsFromDiagnosis(
             result.stepVerifierDecision.calibratedConfidence * 100
           )}%`
         : "未生成 step verifier decision",
+      { phase: "verification", replayable: true }
+    ),
+    event(
+      "layered_verifier_completed",
+      "三层 verifier 已完成",
+      result.layeredVerifierReport?.overallStatus === "fail"
+        ? "failed"
+        : result.layeredVerifierReport?.overallStatus === "warn"
+          ? "warn"
+          : "completed",
+      result.layeredVerifierReport
+        ? `formal 候选 ${result.layeredVerifierReport.formalReviewPlan.candidateClaims.length} 个`
+        : "未生成三层 verifier 报告",
       { phase: "verification", replayable: true }
     ),
     event(

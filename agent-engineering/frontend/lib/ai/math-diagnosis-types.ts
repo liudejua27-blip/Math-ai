@@ -131,6 +131,51 @@ export type StepVerifierFeedbackSample = {
   >;
 };
 
+export type VerifierTierLevel = "light" | "domain" | "formal";
+
+export type LayeredVerifierCheck = {
+  id: string;
+  claim: string;
+  status: "pass" | "fail" | "warn" | "not_checked";
+  confidence: number;
+  evidenceIds: string[];
+  reason: string;
+};
+
+export type VerifierTierReport = {
+  tier: VerifierTierLevel;
+  verifier:
+    | "sympy_numeric_geometry"
+    | "high_school_domain_verifier"
+    | "lean4_formal_adapter";
+  status: "pass" | "fail" | "warn" | "not_checked";
+  checks: LayeredVerifierCheck[];
+  summary: string;
+};
+
+export type FormalReviewPlan = {
+  shouldRun: boolean;
+  adapter: "lean4";
+  reason: string;
+  candidateClaims: string[];
+  auxiliaryLemmaHints: string[];
+  knowledgeRetrievalHints: string[];
+};
+
+export type LayeredVerifierReport = {
+  source: "layered_verifier_engine";
+  overallStatus: "pass" | "fail" | "warn" | "not_checked";
+  tiers: VerifierTierReport[];
+  formalReviewPlan: FormalReviewPlan;
+  knowledgeEvolution: {
+    source: "leanagent_inspired";
+    reusableLemmaHints: string[];
+    curriculumTags: string[];
+    retrievalHints: string[];
+  };
+  notes: string[];
+};
+
 export type LearnerMemoryGuidance = {
   nextProblemRecommendation: string;
   questionDifficulty: "micro" | "standard" | "transfer" | "challenge";
@@ -197,6 +242,7 @@ export type MathDiagnosisResult = {
   socraticQuestions: string[];
   policyDecision: SocraticPolicyDecision;
   verifierTraces: VerifierTrace[];
+  layeredVerifierReport?: LayeredVerifierReport;
   stepAlignmentDetails?: StepAlignmentDetail[];
   claimTraces?: ClaimTrace[];
   stepVerifierDecision?: StepVerifierDecision;

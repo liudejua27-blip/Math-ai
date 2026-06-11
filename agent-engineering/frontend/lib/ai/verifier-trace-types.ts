@@ -13,6 +13,8 @@ export type VerifierTrace = {
     | "proof_step";
   verifier:
     | "typescript_strict_gate"
+    | "high_school_domain_verifier"
+    | "lean_formal_adapter"
     | "sympy"
     | "numeric_sampling"
     | "geometry_constraint"
