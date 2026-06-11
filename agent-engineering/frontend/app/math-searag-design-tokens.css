@@ -1,0 +1,341 @@
+:root {
+  --ms-bg-app: #f5f7fa;
+  --ms-bg-sidebar: #f4f7fb;
+  --ms-bg-canvas: #fbfcfe;
+  --ms-bg-inspector: #f8fafc;
+  --ms-surface-card: rgb(255 255 255 / 0.9);
+  --ms-surface-elevated: rgb(255 255 255 / 0.98);
+  --ms-surface-subtle: #eef2f7;
+  --ms-surface-hover: rgb(15 23 42 / 0.055);
+  --ms-border: rgb(15 23 42 / 0.12);
+  --ms-border-muted: rgb(15 23 42 / 0.08);
+  --ms-border-strong: rgb(15 23 42 / 0.18);
+  --ms-text: #222222;
+  --ms-text-muted: #5f6878;
+  --ms-text-faint: #8a93a4;
+  --ms-text-placeholder: #949dad;
+  --ms-accent: #0088ff;
+  --ms-accent-soft: rgb(0 136 255 / 0.14);
+  --ms-success: #128a4a;
+  --ms-success-soft: rgb(17 185 129 / 0.14);
+  --ms-danger: #c92a2a;
+  --ms-danger-soft: rgb(239 68 68 / 0.12);
+  --ms-warning-soft: rgb(245 158 11 / 0.14);
+
+  --ms-radius-sm: 6px;
+  --ms-radius-md: 8px;
+  --ms-radius-lg: 12px;
+  --ms-radius-xl: 14px;
+  --ms-radius-2xl: 16px;
+  --ms-radius-3xl: 22px;
+  --ms-radius-composer: 28px;
+  --ms-radius-pill: 9999px;
+
+  --ms-motion-micro: 140ms ease;
+  --ms-motion-standard: 150ms ease;
+  --ms-motion-deep: 300ms ease;
+
+  --ms-shadow-chip: inset 0 1px 0 rgb(255 255 255 / 0.78);
+  --ms-shadow-card-soft: 0 10px 28px rgb(15 23 42 / 0.06);
+  --ms-shadow-card-strong: 0 14px 36px rgb(15 23 42 / 0.09);
+  --ms-shadow-panel: 0 16px 44px rgb(15 23 42 / 0.06);
+  --ms-shadow-composer: 0 18px 46px rgb(15 23 42 / 0.1), 0 5px 16px rgb(15 23 42 / 0.06);
+  --ms-resize-idle: rgb(15 23 42 / 0.08);
+  --ms-resize-hover: rgb(0 136 255 / 0.45);
+
+  --ds-bg-main: var(--ms-bg-app);
+  --ds-bg-sidebar: var(--ms-bg-sidebar);
+  --ds-bg-canvas: var(--ms-bg-canvas);
+  --ds-bg-inspector: var(--ms-bg-inspector);
+  --ds-surface-card: var(--ms-surface-card);
+  --ds-surface-elevated: var(--ms-surface-elevated);
+  --ds-surface-subtle: var(--ms-surface-subtle);
+  --ds-surface-hover: var(--ms-surface-hover);
+  --ds-border: var(--ms-border);
+  --ds-border-subtle: var(--ms-border-muted);
+  --ds-border-strong: var(--ms-border-strong);
+  --ds-text-main: var(--ms-text);
+  --ds-text-muted: var(--ms-text-muted);
+  --ds-text-faint: var(--ms-text-faint);
+  --ds-text-placeholder: var(--ms-text-placeholder);
+  --ds-accent: var(--ms-accent);
+  --ds-accent-soft: var(--ms-accent-soft);
+  --ds-success: var(--ms-success);
+  --ds-success-soft: var(--ms-success-soft);
+  --ds-danger: var(--ms-danger);
+  --ds-danger-soft: var(--ms-danger-soft);
+  --ds-warning-soft: var(--ms-warning-soft);
+  --ds-radius-sm: var(--ms-radius-sm);
+  --ds-radius-md: var(--ms-radius-md);
+  --ds-radius-lg: var(--ms-radius-lg);
+  --ds-radius-xl: var(--ms-radius-xl);
+  --ds-radius-2xl: var(--ms-radius-2xl);
+  --ds-radius-3xl: var(--ms-radius-3xl);
+  --ds-radius-composer: var(--ms-radius-composer);
+  --ds-radius-pill: var(--ms-radius-pill);
+  --ds-motion-micro: var(--ms-motion-micro);
+  --ds-motion-standard: var(--ms-motion-standard);
+  --ds-motion-deep: var(--ms-motion-deep);
+  --ds-shadow-chip: var(--ms-shadow-chip);
+  --ds-shadow-card-soft: var(--ms-shadow-card-soft);
+  --ds-shadow-card-strong: var(--ms-shadow-card-strong);
+  --ds-shadow-panel: var(--ms-shadow-panel);
+  --ds-shadow-card: var(--ms-shadow-card-soft);
+  --ds-shadow-composer: var(--ms-shadow-composer);
+  --ds-resize-idle: var(--ms-resize-idle);
+  --ds-resize-hover: var(--ms-resize-hover);
+}
+
+.dark {
+  --ms-bg-app: #101010;
+  --ms-bg-sidebar: #141414;
+  --ms-bg-canvas: #181818;
+  --ms-bg-inspector: #181818;
+  --ms-surface-card: rgb(24 24 24 / 0.92);
+  --ms-surface-elevated: #202020;
+  --ms-surface-subtle: #202020;
+  --ms-surface-hover: rgb(255 255 255 / 0.1);
+  --ms-border: rgb(255 255 255 / 0.1);
+  --ms-border-muted: rgb(255 255 255 / 0.1);
+  --ms-border-strong: rgb(255 255 255 / 0.16);
+  --ms-text: #ffffff;
+  --ms-text-muted: #c7c7c7;
+  --ms-text-faint: #858585;
+  --ms-text-placeholder: #7a7a7a;
+  --ms-accent: #339cff;
+  --ms-accent-soft: rgb(51 156 255 / 0.18);
+  --ms-success: #40c977;
+  --ms-success-soft: rgb(64 201 119 / 0.18);
+  --ms-danger: #fa423e;
+  --ms-danger-soft: rgb(250 66 62 / 0.18);
+  --ms-warning-soft: rgb(245 158 11 / 0.18);
+  --ms-shadow-chip: inset 0 1px 0 rgb(255 255 255 / 0.045);
+  --ms-shadow-card-soft: 0 16px 42px rgb(0 0 0 / 0.22);
+  --ms-shadow-card-strong: 0 22px 56px rgb(0 0 0 / 0.3);
+  --ms-shadow-panel: 0 22px 58px rgb(0 0 0 / 0.35);
+  --ms-shadow-composer: 0 28px 78px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(255 255 255 / 0.06);
+  --ms-resize-idle: rgb(255 255 255 / 0.08);
+  --ms-resize-hover: rgb(85 167 255 / 0.5);
+}
+
+@layer components {
+  .ms-workbench-shell,
+  .ds-workbench-shell {
+    background: var(--ms-bg-app);
+    color: var(--ms-text);
+  }
+
+  .ms-sidebar,
+  .ds-sidebar {
+    background: var(--ms-bg-sidebar);
+    border-color: var(--ms-border-muted);
+    box-shadow: var(--ms-shadow-panel);
+  }
+
+  .ms-canvas,
+  .ds-canvas {
+    background: var(--ms-bg-canvas);
+  }
+
+  .ms-inspector,
+  .ds-inspector {
+    background: var(--ms-bg-inspector);
+    border-color: var(--ms-border-muted);
+    box-shadow: var(--ms-shadow-panel);
+  }
+
+  .ms-card,
+  .ds-card {
+    background: var(--ms-surface-card);
+    border-color: var(--ms-border);
+    border-radius: var(--ms-radius-lg);
+    box-shadow: var(--ms-shadow-card-soft);
+    backdrop-filter: blur(14px);
+    transition:
+      background-color var(--ms-motion-micro),
+      border-color var(--ms-motion-micro),
+      box-shadow var(--ms-motion-standard),
+      transform var(--ms-motion-standard);
+  }
+
+  .ms-card-hover:hover,
+  .ds-card-hover:hover {
+    background: var(--ms-surface-elevated);
+    border-color: var(--ms-border-strong);
+    box-shadow: var(--ms-shadow-card-strong);
+    transform: translateY(-1px);
+  }
+
+  .ms-inspector-panel,
+  .ms-panel,
+  .ds-panel {
+    background: var(--ms-surface-card);
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-lg);
+    box-shadow: var(--ms-shadow-panel);
+  }
+
+  .ms-timeline-item {
+    background: var(--ms-surface-card);
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-md);
+    box-shadow: var(--ms-shadow-card-soft);
+  }
+
+  .ms-chip,
+  .ds-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: var(--ms-radius-pill);
+    background: var(--ms-accent-soft);
+    box-shadow: var(--ms-shadow-chip);
+    color: var(--ms-accent);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    padding: 3px 7px;
+  }
+
+  .ms-chip-muted,
+  .ds-chip-muted {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-pill);
+    background: var(--ms-surface-subtle);
+    box-shadow: var(--ms-shadow-chip);
+    color: var(--ms-text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 6px 10px;
+  }
+
+  .ms-button-primary,
+  .ds-button-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: var(--ms-radius-pill);
+    background: var(--ms-accent);
+    box-shadow: 0 10px 24px rgb(0 136 255 / 0.22);
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    transition:
+      filter var(--ms-motion-micro),
+      transform var(--ms-motion-micro);
+  }
+
+  .ms-button-primary:hover,
+  .ds-button-primary:hover {
+    filter: brightness(1.08);
+  }
+
+  .ms-button-primary:active,
+  .ds-button-primary:active {
+    transform: scale(0.985);
+  }
+
+  .ms-button-secondary,
+  .ds-button-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-lg);
+    background: var(--ms-surface-card);
+    box-shadow: var(--ms-shadow-card-soft);
+    color: var(--ms-text);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 12px;
+    transition:
+      background-color var(--ms-motion-micro),
+      border-color var(--ms-motion-micro),
+      transform var(--ms-motion-micro);
+  }
+
+  .ms-button-secondary:hover,
+  .ds-button-secondary:hover {
+    background: var(--ms-surface-hover);
+    border-color: var(--ms-border-strong);
+  }
+
+  .ms-input,
+  .ds-input {
+    width: 100%;
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-lg);
+    background: var(--ms-surface-card);
+    box-shadow: var(--ms-shadow-card-soft);
+    color: var(--ms-text);
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+
+  .ms-input:focus,
+  .ds-input:focus {
+    border-color: color-mix(in srgb, var(--ms-accent) 45%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ms-accent) 28%, transparent);
+    outline: none;
+  }
+
+  .ms-composer,
+  .ds-composer {
+    border: 1px solid var(--ms-border);
+    border-radius: var(--ms-radius-composer);
+    background: var(--ms-surface-elevated);
+    box-shadow: var(--ms-shadow-composer);
+  }
+
+  .ms-title,
+  .ds-title {
+    color: var(--ms-text);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .ms-caption,
+  .ds-caption {
+    color: var(--ms-text-muted);
+    font-size: 11px;
+    letter-spacing: 0;
+    line-height: 1.45;
+  }
+
+  .ms-resize-handle,
+  .ds-resize-handle {
+    background:
+      linear-gradient(
+        to right,
+        transparent 0,
+        transparent calc(50% - 1px),
+        var(--ms-resize-idle) calc(50% - 1px),
+        var(--ms-resize-idle) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      );
+    transition: background-color var(--ms-motion-micro);
+  }
+
+  .ms-resize-handle:hover,
+  .ms-resize-handle:focus-visible,
+  .ds-resize-handle:hover,
+  .ds-resize-handle:focus-visible {
+    background:
+      linear-gradient(
+        to right,
+        transparent 0,
+        transparent calc(50% - 1px),
+        var(--ms-resize-hover) calc(50% - 1px),
+        var(--ms-resize-hover) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      );
+  }
+}

@@ -152,7 +152,7 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
   }
 
   return (
-    <main className="ds-workbench-shell min-h-screen">
+    <main className="ms-workbench-shell min-h-screen">
       <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[280px_minmax(420px,1fr)_360px]">
         <GeometryLevelMap
           activeLevelId={activeLevel.levelId}
@@ -184,7 +184,7 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
           />
         </div>
 
-        <aside className="ds-inspector min-h-screen overflow-y-auto border-l">
+        <aside className="ms-inspector min-h-screen overflow-y-auto border-l">
           <div className="flex h-12 items-center justify-between border-border border-b px-4">
             <div>
               <div className="font-semibold text-sm">{display.title}</div>

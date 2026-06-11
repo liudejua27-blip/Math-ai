@@ -141,7 +141,7 @@ export function ChatShell({
 
   return (
     <>
-      <div className="ds-workbench-shell flex h-dvh w-full flex-row overflow-hidden">
+      <div className="ms-workbench-shell flex h-dvh w-full flex-row overflow-hidden">
         <LearningWorkbenchSidebar
           activeTaskLabel={workbenchLayout.activeTaskLabel}
           latestDiagnosis={latestDiagnosis}
@@ -157,7 +157,7 @@ export function ChatShell({
         <div className="flex min-w-0 flex-1 flex-row overflow-hidden">
           <div
             className={cn(
-              "ds-canvas flex min-w-0 flex-col transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+              "ms-canvas flex min-w-0 flex-col transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
               isArtifactVisible ? "w-[40%]" : "w-full"
             )}
           >
@@ -338,7 +338,7 @@ function WorkbenchResizeHandle({
   return (
     <div
       aria-label={label}
-      className="ds-resize-handle hidden h-dvh w-1 shrink-0 cursor-col-resize touch-none xl:block"
+      className="ms-resize-handle hidden h-dvh w-1 shrink-0 cursor-col-resize touch-none xl:block"
       onPointerDown={onPointerDown}
       role="separator"
       tabIndex={0}

@@ -424,30 +424,30 @@ function claimMatchesCheck(
   check: { key: string; label: string; reason: string }
 ) {
   const haystack = `${check.key} ${check.label} ${check.reason}`;
-  if (claimType === "domain" && /domain|定义域|瀹氫箟/.test(haystack)) {
+  if (claimType === "domain" && /domain|定义域/.test(haystack)) {
     return true;
   }
   if (
     claimType === "classification" &&
-    /parameter|classification|分类|参数|鍙傛暟|鍒嗙被/.test(haystack)
+    /parameter|classification|分类|参数/.test(haystack)
   ) {
     return true;
   }
   if (
     claimType === "monotonicity_extremum" &&
-    /monotonicity|endpoint|boundary|单调|最值|鍗曡皟|绔偣/.test(haystack)
+    /monotonicity|endpoint|boundary|单调|最值/.test(haystack)
   ) {
     return true;
   }
   if (
     claimType === "geometry_vector_method_mismatch" &&
-    /geometry|projection|dihedral|section|几何|鍑犱綍|浜岄潰|鎶曞奖/.test(haystack)
+    /geometry|projection|dihedral|section|几何|二面角|投影/.test(haystack)
   ) {
     return true;
   }
   if (
     claimType === "equivalence_transform" &&
-    /equation|derivative|discriminant|formula|方程|判别式|姹傚/.test(haystack)
+    /equation|derivative|discriminant|formula|方程|判别式|求导/.test(haystack)
   ) {
     return true;
   }

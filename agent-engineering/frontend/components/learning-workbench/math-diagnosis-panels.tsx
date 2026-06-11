@@ -17,7 +17,7 @@ export function FirstWrongStepPanel({
 }) {
   return (
     <InfoBlock title="第一断点">
-      <div className="ds-card rounded-md border px-3 py-2 text-sm leading-6">
+      <div className="ms-card rounded-md border px-3 py-2 text-sm leading-6">
         <div className="font-medium">
           {result.firstWrongStep ?? "暂未定位第一断点"}
         </div>
@@ -38,7 +38,7 @@ export function PolicyPanel({
 }) {
   return (
     <InfoBlock title="教学策略">
-      <div className="ds-card rounded-md border px-3 py-2 text-sm leading-6">
+      <div className="ms-card rounded-md border px-3 py-2 text-sm leading-6">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium">{policy.mode}</span>
           {!policy.allowedContent.canShowFullSolution && (
@@ -68,7 +68,7 @@ export function SocraticQuestionsPanel({
       <ol className="grid gap-2">
         {questions.map((question, index) => (
           <li
-            className="ds-card rounded-md border px-3 py-2 text-sm leading-6"
+            className="ms-card rounded-md border px-3 py-2 text-sm leading-6"
             key={`${question}-${index}`}
           >
             {question}
@@ -116,7 +116,7 @@ export function StepAlignmentDetailsPanel({
     <InfoBlock title="Step Alignment">
       <div className="grid gap-2">
         {result.stepAlignmentDetails.slice(0, 4).map((step) => (
-          <div className="ds-card rounded-md border px-3 py-2 text-sm" key={step.stepId}>
+          <div className="ms-card rounded-md border px-3 py-2 text-sm" key={step.stepId}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{step.stepId}</span>
               <StatusBadge status={step.status} />
@@ -175,7 +175,7 @@ export function StrictChecksPanel({
     <InfoBlock title={failedOnly ? "未通过门禁" : "严格门禁"}>
       <div className="grid gap-2">
         {checks.slice(0, limit).map((check) => (
-          <div className="ds-card rounded-md border px-3 py-2 text-sm" key={check.id}>
+          <div className="ms-card rounded-md border px-3 py-2 text-sm" key={check.id}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{check.label}</span>
               <StatusBadge status={check.status} />
@@ -201,7 +201,7 @@ export function VerifierTracePanel({
     <InfoBlock title="验证链">
       <div className="grid gap-2">
         {result.verifierTraces.slice(0, limit).map((trace) => (
-          <div className="ds-card rounded-md border px-3 py-2 text-sm" key={trace.id}>
+          <div className="ms-card rounded-md border px-3 py-2 text-sm" key={trace.id}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{trace.claim}</span>
               <StatusBadge status={trace.status} />
@@ -237,7 +237,7 @@ export function LearnerMemoryPanel({
     <InfoBlock title="学习画像更新">
       <div className="grid gap-2">
         {result.learnerMemoryDelta.atomUpdates.slice(0, 4).map((delta) => (
-          <div className="ds-card rounded-md border px-3 py-2 text-sm" key={delta.atomId}>
+          <div className="ms-card rounded-md border px-3 py-2 text-sm" key={delta.atomId}>
             <div className="font-medium">
               {delta.label} · {formatMastery(delta.mastery)}
             </div>
@@ -266,7 +266,7 @@ export function RemediationPlanPanel({
       <div className="grid gap-2">
         {result.remediationPlan.items.slice(0, 4).map((item, index) => (
           <div
-            className="ds-card rounded-md border px-3 py-2 text-sm"
+            className="ms-card rounded-md border px-3 py-2 text-sm"
             key={`${item.atomId}-${item.level}-${index}`}
           >
             <div className="font-medium">
@@ -323,7 +323,7 @@ export function CorrectionCardPanel({
   return (
     <div
       className={cn(
-        "ds-card rounded-lg border",
+        "ms-card rounded-lg border",
         compact ? "mt-3 p-3" : "p-4"
       )}
     >

@@ -46,7 +46,7 @@ export function LearningWorkbenchSidebar({
   return (
     <aside
       className={cn(
-        "ds-sidebar hidden h-dvh shrink-0 flex-col border-r xl:flex",
+        "ms-sidebar hidden h-dvh shrink-0 flex-col border-r xl:flex",
         className
       )}
       style={{ "--workbench-sidebar-width": `${width ?? 288}px`, width } as CSSProperties}
@@ -66,7 +66,7 @@ export function LearningWorkbenchSidebar({
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <SidebarSection title="学生画像">
           {workbenchSummary?.profile ? (
-            <div className="ds-card rounded-lg border p-3">
+            <div className="ms-card rounded-lg border p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="font-medium text-sm">当前学习状态</div>
                 <span className="rounded-md bg-primary/10 px-2 py-0.5 text-primary text-xs">
@@ -86,7 +86,7 @@ export function LearningWorkbenchSidebar({
           {workbenchSummary?.topAtoms.length ? (
             <div className="grid gap-2">
               {workbenchSummary.topAtoms.map((atom) => (
-                <div className="ds-card rounded-md border px-3 py-2" key={atom.id}>
+                <div className="ms-card rounded-md border px-3 py-2" key={atom.id}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-xs">{atom.atomId}</span>
                     <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground text-xs">
@@ -134,7 +134,7 @@ export function LearningWorkbenchSidebar({
             <div className="grid gap-2">
               {recentDiagnoses.slice(0, 6).map((item) => (
                 <a
-                  className="ds-card rounded-md border px-3 py-2 transition hover:border-primary/40"
+                  className="ms-card ms-card-hover rounded-md border px-3 py-2 transition hover:border-primary/40"
                   href={`/diagnosis/${item.id}`}
                   key={item.id}
                 >
@@ -205,7 +205,7 @@ function SidebarSection({
 
 function PlanItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="ds-card flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+    <div className="ms-card flex items-center justify-between gap-2 rounded-md border px-3 py-2">
       <span className="min-w-0 truncate">{label}</span>
       <span className="shrink-0 text-muted-foreground text-xs">{value}</span>
     </div>
@@ -214,7 +214,7 @@ function PlanItem({ label, value }: { label: string; value: string }) {
 
 function AtomChip({ id, label }: { id: string; label: string }) {
   return (
-    <div className="ds-card flex items-center justify-between rounded-md border px-3 py-2">
+    <div className="ms-card flex items-center justify-between rounded-md border px-3 py-2">
       <span className="font-medium text-xs">{id}</span>
       <span className="max-w-36 truncate text-muted-foreground text-xs">
         {label}

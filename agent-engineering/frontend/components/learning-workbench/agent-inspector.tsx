@@ -66,7 +66,7 @@ export function AgentInspector({
   return (
     <aside
       className={cn(
-        "ds-inspector hidden h-dvh shrink-0 border-l transition-[width] duration-200 xl:flex",
+        "ms-inspector hidden h-dvh shrink-0 border-l transition-[width] duration-200 xl:flex",
         collapsed && "w-12"
       )}
       style={
@@ -246,7 +246,7 @@ function RuntimeStatusPanel({
 }) {
   const hasDiagnosis = result && !("error" in result);
   return (
-    <div className="ds-card rounded-lg border p-3">
+    <div className="ms-inspector-panel p-3">
       <div className="flex items-center justify-between gap-2">
         <div>
           <div className="font-medium text-sm">Runtime 控制台</div>
@@ -331,7 +331,7 @@ function ControlButton({
 
 function StatusSummary({ result }: { result: MathDiagnosisResult }) {
   return (
-    <div className="ds-card rounded-lg border p-3">
+    <div className="ms-inspector-panel p-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-md bg-blue-500/10 px-2 py-1 font-medium text-blue-700 text-xs dark:text-blue-300">
           confidence {Math.round(result.confidence * 100)}%
@@ -392,7 +392,7 @@ function WorkbenchTimeline({
       </div>
       <div className="grid gap-2">
         {liveEvents.map((item) => (
-          <div className="ds-card rounded-md border px-3 py-2 text-sm" key={item.id}>
+          <div className="ms-timeline-item px-3 py-2 text-sm" key={item.id}>
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium">{item.title}</span>
               <span className={cn("rounded-md px-2 py-0.5 text-xs", statusTone(item.status))}>

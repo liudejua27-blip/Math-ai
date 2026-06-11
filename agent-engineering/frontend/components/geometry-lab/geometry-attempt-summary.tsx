@@ -34,7 +34,7 @@ export function GeometryAttemptSummary({
   const passRule = level.scene.assessment.passRule;
 
   return (
-    <section className="border-border border-t bg-[var(--ds-bg-canvas)] px-4 py-3">
+    <section className="border-border border-t bg-[var(--ms-bg-canvas)] px-4 py-3">
       <div className="grid gap-3 text-sm lg:grid-cols-[1fr_auto]">
         <div className="grid gap-3 sm:grid-cols-4">
           <Metric label="目标命中" value={`${correctCount}/${level.scene.targets.length}`} />
@@ -47,7 +47,7 @@ export function GeometryAttemptSummary({
             className={cn(
               "rounded-md px-3 py-2 font-medium text-sm transition",
               passed
-                ? "ds-button-primary"
+                ? "ms-button-primary"
                 : "bg-muted text-muted-foreground"
             )}
             disabled={!passed}
@@ -57,7 +57,7 @@ export function GeometryAttemptSummary({
             我订正完了
           </button>
           <button
-            className="ds-button-secondary"
+            className="ms-button-secondary"
             onClick={onOpenVariant}
             type="button"
           >
@@ -73,7 +73,7 @@ export function GeometryAttemptSummary({
         </div>
       )}
       {variantOpen && (
-        <div className="ds-card mt-3 border px-3 py-2 text-sm leading-6">
+        <div className="ms-card mt-3 border px-3 py-2 text-sm leading-6">
           <div className="font-medium">变式做题入口</div>
           <div className="mt-1">{display.variantPrompt}</div>
           <div className="mt-1 text-muted-foreground text-xs">
@@ -81,14 +81,14 @@ export function GeometryAttemptSummary({
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
-              className="ds-button-primary px-3 py-1.5 text-xs"
+              className="ms-button-primary px-3 py-1.5 text-xs"
               onClick={() => onSubmitVariantResult(true)}
               type="button"
             >
               变式做对了
             </button>
             <button
-              className="ds-button-secondary px-3 py-1.5 text-xs"
+              className="ms-button-secondary px-3 py-1.5 text-xs"
               onClick={() => onSubmitVariantResult(false)}
               type="button"
             >
