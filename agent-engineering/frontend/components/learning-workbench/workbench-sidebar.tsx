@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+import type { CSSProperties } from "react";
 import type { MathDiagnosisToolResult } from "@/lib/ai/math-diagnosis-types";
 import type {
   DiagnosisHistoryItem,
@@ -12,6 +14,8 @@ type LearningWorkbenchSidebarProps = {
   workbenchSummary: StudentWorkbenchSummary | null;
   recentDiagnoses?: DiagnosisHistoryItem[];
   className?: string;
+  width?: number;
+  activeTaskLabel?: string;
 };
 
 export function LearningWorkbenchSidebar({
@@ -19,6 +23,8 @@ export function LearningWorkbenchSidebar({
   workbenchSummary,
   recentDiagnoses = workbenchSummary?.recentDiagnoses ?? [],
   className,
+  width,
+  activeTaskLabel,
 }: LearningWorkbenchSidebarProps) {
   const hasDiagnosis =
     Boolean(latestDiagnosis) && !(latestDiagnosis && "error" in latestDiagnosis);
@@ -40,21 +46,27 @@ export function LearningWorkbenchSidebar({
   return (
     <aside
       className={cn(
-        "hidden h-dvh w-72 shrink-0 flex-col border-border/60 border-r bg-sidebar/95 xl:flex",
+        "ds-sidebar hidden h-dvh shrink-0 flex-col border-r xl:flex",
         className
       )}
+      style={{ "--workbench-sidebar-width": `${width ?? 288}px`, width } as CSSProperties}
     >
       <div className="border-border/50 border-b px-4 py-3">
         <div className="font-semibold text-sm">Math-SEARAG Workbench</div>
         <div className="mt-1 text-muted-foreground text-xs">
           高中数学思维诊断操作台
         </div>
+        {activeTaskLabel && (
+          <div className="mt-2 rounded-md border border-border/50 bg-background/70 px-2 py-1.5 text-xs">
+            当前任务：{activeTaskLabel}
+          </div>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
         <SidebarSection title="学生画像">
           {workbenchSummary?.profile ? (
-            <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+            <div className="ds-card rounded-lg border p-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="font-medium text-sm">当前学习状态</div>
                 <span className="rounded-md bg-primary/10 px-2 py-0.5 text-primary text-xs">
@@ -74,10 +86,7 @@ export function LearningWorkbenchSidebar({
           {workbenchSummary?.topAtoms.length ? (
             <div className="grid gap-2">
               {workbenchSummary.topAtoms.map((atom) => (
-                <div
-                  className="rounded-md border border-border/50 bg-background/70 px-3 py-2"
-                  key={atom.id}
-                >
+                <div className="ds-card rounded-md border px-3 py-2" key={atom.id}>
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-xs">{atom.atomId}</span>
                     <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground text-xs">
@@ -122,7 +131,7 @@ export function LearningWorkbenchSidebar({
             <div className="grid gap-2">
               {recentDiagnoses.slice(0, 6).map((item) => (
                 <a
-                  className="rounded-md border border-border/50 bg-background/70 px-3 py-2 transition hover:border-primary/40"
+                  className="ds-card rounded-md border px-3 py-2 transition hover:border-primary/40"
                   href={`/diagnosis/${item.id}`}
                   key={item.id}
                 >
@@ -193,7 +202,7 @@ function SidebarSection({
 
 function PlanItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-background/70 px-3 py-2">
+    <div className="ds-card flex items-center justify-between gap-2 rounded-md border px-3 py-2">
       <span className="min-w-0 truncate">{label}</span>
       <span className="shrink-0 text-muted-foreground text-xs">{value}</span>
     </div>
@@ -202,7 +211,7 @@ function PlanItem({ label, value }: { label: string; value: string }) {
 
 function AtomChip({ id, label }: { id: string; label: string }) {
   return (
-    <div className="flex items-center justify-between rounded-md border border-border/50 bg-background/70 px-3 py-2">
+    <div className="ds-card flex items-center justify-between rounded-md border px-3 py-2">
       <span className="font-medium text-xs">{id}</span>
       <span className="max-w-36 truncate text-muted-foreground text-xs">
         {label}

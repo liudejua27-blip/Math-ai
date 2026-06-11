@@ -1,5 +1,6 @@
 "use client";
 
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertDialog,
@@ -29,6 +30,7 @@ import { DataStreamHandler } from "./data-stream-handler";
 import { submitEditedMessage } from "./message-editor";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
+import { clamp, useWorkbenchLayoutState } from "./use-workbench-layout-state";
 
 export function ChatShell({
   initialWorkbenchSummary = null,
@@ -60,11 +62,12 @@ export function ChatShell({
     null
   );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
   const [isMobileInspectorOpen, setIsMobileInspectorOpen] = useState(false);
+  const [workbenchLayout, setWorkbenchLayout] = useWorkbenchLayoutState();
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
   const { setArtifact } = useArtifact();
   const latestDiagnosis = getLatestMathDiagnosisResult(messages);
+  const activeTaskLabel = buildActiveTaskLabel(latestDiagnosis);
 
   const stopRef = useRef(stop);
   stopRef.current = stop;
@@ -80,19 +83,55 @@ export function ChatShell({
     }
   }, [chatId, setArtifact]);
 
+  useEffect(() => {
+    setWorkbenchLayout((current) =>
+      current.activeTaskLabel === activeTaskLabel
+        ? current
+        : { ...current, activeTaskLabel }
+    );
+  }, [activeTaskLabel, setWorkbenchLayout]);
+
+  function startSidebarResize(event: ReactPointerEvent<HTMLDivElement>) {
+    const startX = event.clientX;
+    const startWidth = workbenchLayout.leftWidth;
+    startColumnResize(event, (clientX) => {
+      setWorkbenchLayout((current) => ({
+        ...current,
+        leftWidth: clamp(startWidth + clientX - startX, 240, 420),
+      }));
+    });
+  }
+
+  function startInspectorResize(event: ReactPointerEvent<HTMLDivElement>) {
+    const startX = event.clientX;
+    const startWidth = workbenchLayout.rightWidth;
+    startColumnResize(event, (clientX) => {
+      setWorkbenchLayout((current) => ({
+        ...current,
+        rightWidth: clamp(startWidth - (clientX - startX), 300, 760),
+      }));
+    });
+  }
+
   return (
     <>
-      <div className="flex h-dvh w-full flex-row overflow-hidden">
+      <div className="ds-workbench-shell flex h-dvh w-full flex-row overflow-hidden">
         <LearningWorkbenchSidebar
+          activeTaskLabel={workbenchLayout.activeTaskLabel}
           latestDiagnosis={latestDiagnosis}
           recentDiagnoses={initialWorkbenchSummary?.recentDiagnoses ?? []}
+          width={workbenchLayout.leftWidth}
           workbenchSummary={initialWorkbenchSummary}
+        />
+        <WorkbenchResizeHandle
+          label="调整左侧画像栏宽度"
+          onPointerDown={startSidebarResize}
         />
 
         <div className="flex min-w-0 flex-1 flex-row overflow-hidden">
           <div
             className={cn(
-              "flex min-w-0 flex-col bg-sidebar transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+              "ds-canvas flex min-w-0 flex-col transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
               isArtifactVisible ? "w-[40%]" : "w-full"
             )}
           >
@@ -194,12 +233,24 @@ export function ChatShell({
           />
         </div>
 
+        {!workbenchLayout.inspectorCollapsed && (
+          <WorkbenchResizeHandle
+            label="调整右侧 Inspector 宽度"
+            onPointerDown={startInspectorResize}
+          />
+        )}
         <AgentInspector
-          collapsed={isInspectorCollapsed}
+          collapsed={workbenchLayout.inspectorCollapsed}
           exportable
           mobileMode="sidebar"
-          onToggle={() => setIsInspectorCollapsed((value) => !value)}
+          onToggle={() =>
+            setWorkbenchLayout((current) => ({
+              ...current,
+              inspectorCollapsed: !current.inspectorCollapsed,
+            }))
+          }
           result={latestDiagnosis}
+          width={workbenchLayout.rightWidth}
         />
         {isMobileInspectorOpen && (
           <AgentInspector
@@ -245,6 +296,71 @@ export function ChatShell({
       </AlertDialog>
     </>
   );
+}
+
+function WorkbenchResizeHandle({
+  label,
+  onPointerDown,
+}: {
+  label: string;
+  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
+}) {
+  return (
+    <div
+      aria-label={label}
+      className="ds-resize-handle hidden h-dvh w-1 shrink-0 cursor-col-resize touch-none xl:block"
+      onPointerDown={onPointerDown}
+      role="separator"
+      tabIndex={0}
+    />
+  );
+}
+
+function startColumnResize(
+  event: ReactPointerEvent<HTMLDivElement>,
+  onMove: (clientX: number) => void
+) {
+  event.preventDefault();
+  event.currentTarget.setPointerCapture(event.pointerId);
+
+  const move = (pointerEvent: PointerEvent) => {
+    onMove(pointerEvent.clientX);
+  };
+  const stop = () => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", stop);
+    window.removeEventListener("pointercancel", stop);
+  };
+
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", stop);
+  window.addEventListener("pointercancel", stop);
+}
+
+function buildActiveTaskLabel(result: MathDiagnosisToolResult | null) {
+  if (!result) {
+    return "等待诊断";
+  }
+
+  if ("error" in result) {
+    return result.error === "missing_student_steps"
+      ? "等待学生补充步骤"
+      : "诊断服务需检查";
+  }
+
+  if (result.firstWrongStep) {
+    return `订正第一错步：${truncate(result.firstWrongStep, 18)}`;
+  }
+
+  if (result.remediationPlan?.items.length) {
+    return "进行同因变式训练";
+  }
+
+  return "继续苏格拉底追问";
+}
+
+function truncate(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
 function getLatestMathDiagnosisResult(

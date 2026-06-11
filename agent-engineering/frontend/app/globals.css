@@ -92,6 +92,24 @@
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --ds-bg-main: #f4f7fb;
+  --ds-bg-sidebar: #f7f9fc;
+  --ds-bg-canvas: #fbfcfe;
+  --ds-bg-inspector: #f8fafc;
+  --ds-surface-card: rgb(255 255 255 / 0.86);
+  --ds-surface-elevated: #ffffff;
+  --ds-surface-subtle: #eef3f8;
+  --ds-border-subtle: rgb(15 23 42 / 0.1);
+  --ds-border-strong: rgb(15 23 42 / 0.18);
+  --ds-text-main: #18202f;
+  --ds-text-muted: #647083;
+  --ds-accent: #1677ff;
+  --ds-accent-soft: rgb(22 119 255 / 0.12);
+  --ds-shadow-panel: 0 1px 2px rgb(15 23 42 / 0.04);
+  --ds-shadow-card: 0 1px 3px rgb(15 23 42 / 0.05);
+  --ds-resize-idle: rgb(15 23 42 / 0.08);
+  --ds-resize-hover: rgb(22 119 255 / 0.45);
 }
 
 .dark {
@@ -138,6 +156,24 @@
   --shadow-composer-focus:
     0 0 0 1px oklch(1 0 0 / 0.1), 0 4px 16px -4px oklch(0 0 0 / 0.3),
     inset 0 1px 0 oklch(1 0 0 / 0.04);
+
+  --ds-bg-main: #111827;
+  --ds-bg-sidebar: #151b25;
+  --ds-bg-canvas: #0f141c;
+  --ds-bg-inspector: #141a23;
+  --ds-surface-card: rgb(31 41 55 / 0.72);
+  --ds-surface-elevated: #202936;
+  --ds-surface-subtle: #1d2532;
+  --ds-border-subtle: rgb(255 255 255 / 0.08);
+  --ds-border-strong: rgb(255 255 255 / 0.16);
+  --ds-text-main: #edf2f7;
+  --ds-text-muted: #9aa7b7;
+  --ds-accent: #55a7ff;
+  --ds-accent-soft: rgb(85 167 255 / 0.14);
+  --ds-shadow-panel: inset 0 1px 0 rgb(255 255 255 / 0.03);
+  --ds-shadow-card: 0 1px 2px rgb(0 0 0 / 0.22);
+  --ds-resize-idle: rgb(255 255 255 / 0.08);
+  --ds-resize-hover: rgb(85 167 255 / 0.5);
 }
 
 @layer base {
@@ -217,6 +253,61 @@ textarea:focus-visible {
   scrollbar-width: none;
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+@layer components {
+  .ds-workbench-shell {
+    background: var(--ds-bg-main);
+    color: var(--ds-text-main);
+  }
+
+  .ds-sidebar {
+    background: var(--ds-bg-sidebar);
+    border-color: var(--ds-border-subtle);
+    box-shadow: var(--ds-shadow-panel);
+  }
+
+  .ds-canvas {
+    background: var(--ds-bg-canvas);
+  }
+
+  .ds-inspector {
+    background: var(--ds-bg-inspector);
+    border-color: var(--ds-border-subtle);
+    box-shadow: var(--ds-shadow-panel);
+  }
+
+  .ds-card {
+    background: var(--ds-surface-card);
+    border-color: var(--ds-border-subtle);
+    box-shadow: var(--ds-shadow-card);
+  }
+
+  .ds-resize-handle {
+    background:
+      linear-gradient(
+        to right,
+        transparent 0,
+        transparent calc(50% - 1px),
+        var(--ds-resize-idle) calc(50% - 1px),
+        var(--ds-resize-idle) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      );
+    transition: background-color 160ms var(--ease-smooth);
+  }
+
+  .ds-resize-handle:hover,
+  .ds-resize-handle:focus-visible {
+    background:
+      linear-gradient(
+        to right,
+        transparent 0,
+        transparent calc(50% - 1px),
+        var(--ds-resize-hover) calc(50% - 1px),
+        var(--ds-resize-hover) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      );
   }
 }
 

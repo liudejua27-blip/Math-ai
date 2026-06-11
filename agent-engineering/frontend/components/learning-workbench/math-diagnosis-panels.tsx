@@ -17,7 +17,7 @@ export function FirstWrongStepPanel({
 }) {
   return (
     <InfoBlock title="第一断点">
-      <div className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm leading-6">
+      <div className="ds-card rounded-md border px-3 py-2 text-sm leading-6">
         <div className="font-medium">
           {result.firstWrongStep ?? "暂未定位第一断点"}
         </div>
@@ -38,7 +38,7 @@ export function PolicyPanel({
 }) {
   return (
     <InfoBlock title="教学策略">
-      <div className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm leading-6">
+      <div className="ds-card rounded-md border px-3 py-2 text-sm leading-6">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium">{policy.mode}</span>
           {!policy.allowedContent.canShowFullSolution && (
@@ -68,7 +68,7 @@ export function SocraticQuestionsPanel({
       <ol className="grid gap-2">
         {questions.map((question, index) => (
           <li
-            className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm leading-6"
+            className="ds-card rounded-md border px-3 py-2 text-sm leading-6"
             key={`${question}-${index}`}
           >
             {question}
@@ -116,10 +116,7 @@ export function StepAlignmentDetailsPanel({
     <InfoBlock title="Step Alignment">
       <div className="grid gap-2">
         {result.stepAlignmentDetails.slice(0, 4).map((step) => (
-          <div
-            className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-            key={step.stepId}
-          >
+          <div className="ds-card rounded-md border px-3 py-2 text-sm" key={step.stepId}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{step.stepId}</span>
               <StatusBadge status={step.status} />
@@ -139,7 +136,9 @@ export function StepAlignmentDetailsPanel({
                   key={claim.id}
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{claim.claimType}</span>
+                    <span className="font-medium">
+                      {formatClaimType(claim.claimType)}
+                    </span>
                     <StatusBadge status={claim.status} />
                   </div>
                   <div className="mt-1 text-muted-foreground">
@@ -176,10 +175,7 @@ export function StrictChecksPanel({
     <InfoBlock title={failedOnly ? "未通过门禁" : "严格门禁"}>
       <div className="grid gap-2">
         {checks.slice(0, limit).map((check) => (
-          <div
-            className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-            key={check.id}
-          >
+          <div className="ds-card rounded-md border px-3 py-2 text-sm" key={check.id}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{check.label}</span>
               <StatusBadge status={check.status} />
@@ -205,10 +201,7 @@ export function VerifierTracePanel({
     <InfoBlock title="验证链">
       <div className="grid gap-2">
         {result.verifierTraces.slice(0, limit).map((trace) => (
-          <div
-            className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-            key={trace.id}
-          >
+          <div className="ds-card rounded-md border px-3 py-2 text-sm" key={trace.id}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{trace.claim}</span>
               <StatusBadge status={trace.status} />
@@ -244,15 +237,12 @@ export function LearnerMemoryPanel({
     <InfoBlock title="学习画像更新">
       <div className="grid gap-2">
         {result.learnerMemoryDelta.atomUpdates.slice(0, 4).map((delta) => (
-          <div
-            className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-            key={delta.atomId}
-          >
+          <div className="ds-card rounded-md border px-3 py-2 text-sm" key={delta.atomId}>
             <div className="font-medium">
-              {delta.label} · {delta.mastery}
+              {delta.label} · {formatMastery(delta.mastery)}
             </div>
             <div className="mt-1 text-muted-foreground leading-6">
-              recurrence {Math.round(delta.recurrenceRate30d * 100)}%，transfer{" "}
+              复发率 {Math.round(delta.recurrenceRate30d * 100)}% · 迁移率{" "}
               {Math.round(delta.transferRate * 100)}%
             </div>
           </div>
@@ -276,7 +266,7 @@ export function RemediationPlanPanel({
       <div className="grid gap-2">
         {result.remediationPlan.items.slice(0, 4).map((item, index) => (
           <div
-            className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
+            className="ds-card rounded-md border px-3 py-2 text-sm"
             key={`${item.atomId}-${item.level}-${index}`}
           >
             <div className="font-medium">
@@ -333,7 +323,7 @@ export function CorrectionCardPanel({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border/70 bg-background",
+        "ds-card rounded-lg border",
         compact ? "mt-3 p-3" : "p-4"
       )}
     >
@@ -392,7 +382,7 @@ export function StatusBadge({ status }: { status: string }) {
         status === "not_checked" && "bg-muted text-muted-foreground"
       )}
     >
-      {status}
+      {formatStatus(status)}
     </span>
   );
 }
@@ -412,4 +402,55 @@ export function InfoBlock({
       {children}
     </div>
   );
+}
+
+function formatStatus(status: string) {
+  if (status === "pass") {
+    return "通过";
+  }
+
+  if (status === "fail") {
+    return "失败";
+  }
+
+  if (status === "warn") {
+    return "需确认";
+  }
+
+  if (status === "not_checked") {
+    return "未验证";
+  }
+
+  return status;
+}
+
+function formatClaimType(type: string) {
+  const labels: Record<string, string> = {
+    equivalence_transform: "等价变形",
+    condition_omission: "条件遗漏",
+    domain: "定义域",
+    classification: "分类讨论",
+    monotonicity_extremum: "单调性与最值",
+    derivative_geometric_meaning: "导数几何意义",
+    sequence_recursion_induction: "数列递推与归纳",
+    conic_condition_transform: "圆锥曲线条件转化",
+    trig_identity_transform: "三角恒等变形",
+    probability_reading: "概率统计读题",
+    geometry_vector_method_mismatch: "空间向量/传统几何混用",
+    geometry_relation: "几何关系",
+    proof_step: "证明步骤",
+  };
+
+  return labels[type] ?? type;
+}
+
+function formatMastery(mastery: string) {
+  const labels: Record<string, string> = {
+    weak: "正在修复",
+    improving: "趋于稳定",
+    stable: "稳定掌握",
+    mastered: "已掌握",
+  };
+
+  return labels[mastery] ?? mastery;
 }

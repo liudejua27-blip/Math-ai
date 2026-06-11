@@ -45,7 +45,7 @@ export function buildWorkbenchEventsFromDiagnosis(
       "步骤已对齐",
       result.firstWrongStep ? "warn" : "completed",
       result.firstWrongStep
-        ? `第一断点定位到 ${result.firstWrongStep}`
+        ? `第一断点定位到：${result.firstWrongStep}`
         : "暂未发现明确第一断点"
     ),
     event(
@@ -84,7 +84,7 @@ export function buildWorkbenchEventsFromDiagnosis(
     events.push(
       event(
         "learner_memory_delta_ready",
-        "画像更新已生成",
+        "学习画像更新已生成",
         "completed",
         `${result.learnerMemoryDelta.atomUpdates.length} 个错因画像变化`
       )
@@ -139,4 +139,3 @@ function event(
     detail,
   };
 }
-

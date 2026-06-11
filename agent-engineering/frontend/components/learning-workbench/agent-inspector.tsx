@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import type {
   MathDiagnosisResult,
   MathDiagnosisToolResult,
@@ -26,6 +27,7 @@ type AgentInspectorProps = {
   onToggle: () => void;
   exportable?: boolean;
   mobileMode?: "drawer" | "sidebar";
+  width?: number;
 };
 
 export function AgentInspector({
@@ -34,6 +36,7 @@ export function AgentInspector({
   onToggle,
   exportable = false,
   mobileMode = "sidebar",
+  width = 380,
 }: AgentInspectorProps) {
   if (mobileMode === "drawer") {
     return (
@@ -53,9 +56,14 @@ export function AgentInspector({
   return (
     <aside
       className={cn(
-        "hidden h-dvh shrink-0 border-border/60 border-l bg-background transition-[width] duration-300 xl:flex",
-        collapsed ? "w-12" : "w-[360px] 2xl:w-[400px]"
+        "ds-inspector hidden h-dvh shrink-0 border-l transition-[width] duration-200 xl:flex",
+        collapsed && "w-12"
       )}
+      style={
+        collapsed
+          ? undefined
+          : ({ "--workbench-inspector-width": `${width}px`, width } as CSSProperties)
+      }
     >
       {collapsed ? (
         <button
@@ -182,7 +190,7 @@ function InspectorContent({ result }: { result: MathDiagnosisToolResult | null }
 
 function StatusSummary({ result }: { result: MathDiagnosisResult }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+    <div className="ds-card rounded-lg border p-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-md bg-blue-500/10 px-2 py-1 font-medium text-blue-700 text-xs dark:text-blue-300">
           confidence {Math.round(result.confidence * 100)}%
@@ -194,7 +202,7 @@ function StatusSummary({ result }: { result: MathDiagnosisResult }) {
         )}
       </div>
       <div className="mt-2 text-muted-foreground text-xs leading-5">
-        这里只展示 workflow 产出的结构化结果，不在前端临时猜测数学结论。
+        这里展示 workflow 产出的结构化结果，前端不临时猜测数学结论。
       </div>
     </div>
   );
@@ -227,10 +235,7 @@ function WorkbenchTimeline({
       </div>
       <div className="grid gap-2">
         {events.map((item) => (
-          <div
-            className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm"
-            key={item.id}
-          >
+          <div className="ds-card rounded-md border px-3 py-2 text-sm" key={item.id}>
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium">{item.title}</span>
               <span

@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { runMathDiagnosisWorkflow } from "../math-diagnosis-workflow";
+import { runMathAgentDiagnosis } from "../runtime/math-agent-runtime";
 
 export function createDiagnoseMathThinkingTool({
   studentId,
@@ -37,7 +37,7 @@ export function createDiagnoseMathThinkingTool({
       teachingStyle,
       visualMode,
     }) =>
-      runMathDiagnosisWorkflow({
+      runMathAgentDiagnosis({
         problemText,
         studentSteps,
         studentId,

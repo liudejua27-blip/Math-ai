@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
 import {
   mathDiagnosisRequestSchema,
-  runMathDiagnosisWorkflow,
-} from "@/lib/ai/math-diagnosis-workflow";
+  runMathAgentDiagnosis,
+} from "@/lib/ai/runtime/math-agent-runtime";
 
 export const maxDuration = 60;
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   }
 
   const session = await auth().catch(() => null);
-  const result = await runMathDiagnosisWorkflow({
+  const result = await runMathAgentDiagnosis({
     ...parsed.data,
     studentId: parsed.data.studentId ?? session?.user?.id,
   });
