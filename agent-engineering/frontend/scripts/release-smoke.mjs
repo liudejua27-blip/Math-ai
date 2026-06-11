@@ -43,6 +43,12 @@ async function main() {
       requiredText: ["Geometry Lab", "Spec OK", "正方体线面角", "新手引导", "我订正完了"],
       maxHorizontalOverflow: 0,
     });
+    await assertPage(browser, `${baseUrl}/reports`, {
+      name: "human-readable-reports",
+      viewport: { width: 1280, height: 900 },
+      requiredText: ["家长/老师端学习报告", "家长端", "老师端", "下一步建议"],
+      maxHorizontalOverflow: 0,
+    });
   } finally {
     await browser.close();
     if (server) {
@@ -73,7 +79,14 @@ async function assertPage(browser, url, options) {
   });
 
   try {
-    await page.goto(url, { waitUntil: "networkidle", timeout: 45_000 });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+    await page.waitForTimeout(750);
+    if (options.requiredText.length > 0) {
+      await page.getByText(options.requiredText[0]).first().waitFor({
+        state: "visible",
+        timeout: 15_000,
+      });
+    }
     const text = await page.locator("body").innerText();
     for (const required of options.requiredText) {
       if (!text.includes(required)) {

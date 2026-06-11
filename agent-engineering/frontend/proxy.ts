@@ -21,6 +21,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname.startsWith("/reports")) {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/workbench-preview")) {
     return NextResponse.next();
   }
