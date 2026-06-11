@@ -22,6 +22,7 @@ export async function POST(request: Request) {
   }
 
   const session = await auth().catch(() => null);
+  const shouldPersist = json?.persist !== false;
   const encoder = new TextEncoder();
   const runtime = getMathAgentRuntime();
 
@@ -30,7 +31,10 @@ export async function POST(request: Request) {
       try {
         for await (const item of runtime.diagnoseEvents({
           ...parsed.data,
-          studentId: parsed.data.studentId ?? session?.user?.id,
+          studentId: shouldPersist
+            ? parsed.data.studentId ?? session?.user?.id
+            : undefined,
+          chatId: shouldPersist ? parsed.data.chatId : undefined,
         })) {
           controller.enqueue(
             encoder.encode(`event: ${item.type}\ndata: ${JSON.stringify(item)}\n\n`)

@@ -1,7 +1,7 @@
 "use client";
 
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,11 +21,13 @@ import {
 import { AgentInspector } from "@/components/learning-workbench/agent-inspector";
 import { LearningWorkbenchSidebar } from "@/components/learning-workbench/workbench-sidebar";
 import type { MathDiagnosisToolResult } from "@/lib/ai/math-diagnosis-types";
+import type { MathDiagnosisRequest } from "@/lib/ai/math-diagnosis-types";
 import type {
   MathAgentRunStatus,
   MathAgentRuntimeControlAction,
 } from "@/lib/ai/runtime/math-agent-runtime";
 import type { StudentWorkbenchSummary } from "@/lib/ai/student-workbench-types";
+import type { WorkbenchEvent } from "@/lib/ai/workbench-events";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Artifact } from "./artifact";
@@ -71,7 +73,14 @@ export function ChatShell({
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
   const { setArtifact } = useArtifact();
   const latestDiagnosis = getLatestMathDiagnosisResult(messages);
+  const latestDiagnosisToolRequest = getLatestMathDiagnosisToolRequest(messages);
   const activeTaskLabel = buildActiveTaskLabel(latestDiagnosis);
+  const [liveEvents, setLiveEvents] = useState<WorkbenchEvent[]>([]);
+  const [liveRuntimeStatus, setLiveRuntimeStatus] =
+    useState<MathAgentRunStatus>("idle");
+  const [liveRunId, setLiveRunId] = useState<string | null>(null);
+  const liveAbortRef = useRef<AbortController | null>(null);
+  const liveRequestKeyRef = useRef<string | null>(null);
 
   const stopRef = useRef(stop);
   stopRef.current = stop;
@@ -80,6 +89,12 @@ export function ChatShell({
   useEffect(() => {
     if (prevChatIdRef.current !== chatId) {
       prevChatIdRef.current = chatId;
+      liveAbortRef.current?.abort();
+      liveAbortRef.current = null;
+      liveRequestKeyRef.current = null;
+      setLiveEvents([]);
+      setLiveRunId(null);
+      setLiveRuntimeStatus("idle");
       stopRef.current();
       setArtifact(initialArtifactData);
       setEditingMessage(null);
@@ -117,8 +132,154 @@ export function ChatShell({
     });
   }
 
+  const startLiveDiagnosisRuntime = useCallback(
+    async (request: MathDiagnosisRequest, requestKey: string) => {
+      if (liveRequestKeyRef.current === requestKey) {
+        return;
+      }
+
+      liveAbortRef.current?.abort();
+      const controller = new AbortController();
+      liveAbortRef.current = controller;
+      liveRequestKeyRef.current = requestKey;
+      setLiveEvents([]);
+      setLiveRunId(null);
+      setLiveRuntimeStatus("running");
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/math-diagnosis/events`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            ...request,
+            chatId,
+            persist: false,
+            teachingStyle: request.teachingStyle ?? "socratic",
+            visualMode: request.visualMode ?? "html_card",
+          }),
+        }
+      ).catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return null;
+        }
+        throw error;
+      });
+
+      if (!response?.body) {
+        if (!controller.signal.aborted) {
+          setLiveRuntimeStatus("failed");
+        }
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+
+          buffer += decoder.decode(value, { stream: true });
+          const blocks = buffer.split("\n\n");
+          buffer = blocks.pop() ?? "";
+
+          for (const block of blocks) {
+            const payload = parseRuntimeSseBlock(block);
+            if (!payload) {
+              continue;
+            }
+
+            if (payload.runId) {
+              setLiveRunId(payload.runId);
+            }
+            if (payload.status) {
+              setLiveRuntimeStatus(payload.status);
+            }
+            if (payload.event) {
+              setLiveEvents((current) => [...current, payload.event as WorkbenchEvent]);
+            }
+            if (payload.type === "runtime_completed") {
+              setLiveRuntimeStatus("completed");
+            }
+            if (payload.type === "runtime_failed") {
+              setLiveRuntimeStatus("failed");
+            }
+          }
+        }
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setLiveRuntimeStatus("failed");
+        }
+      } finally {
+        if (liveAbortRef.current === controller) {
+          liveAbortRef.current = null;
+        }
+      }
+    },
+    [chatId]
+  );
+
+  useEffect(() => {
+    if (!latestDiagnosisToolRequest) {
+      return;
+    }
+
+    void startLiveDiagnosisRuntime(
+      latestDiagnosisToolRequest.request,
+      latestDiagnosisToolRequest.key
+    );
+  }, [latestDiagnosisToolRequest?.key, startLiveDiagnosisRuntime]);
+
+  useEffect(() => {
+    if (latestDiagnosis && liveEvents.length > 0) {
+      setLiveRuntimeStatus((current) =>
+        current === "running" ? "completed" : current
+      );
+    }
+  }, [latestDiagnosis, liveEvents.length]);
+
+  async function recordRuntimeControl(action: MathAgentRuntimeControlAction) {
+    if (!liveRunId) {
+      return;
+    }
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/math-runtime/control`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runId: liveRunId, action }),
+      }
+    ).catch(() => null);
+
+    if (!response?.ok) {
+      return;
+    }
+
+    const payload = (await response.json().catch(() => null)) as {
+      status?: MathAgentRunStatus;
+      events?: WorkbenchEvent[];
+    } | null;
+    if (payload?.status) {
+      setLiveRuntimeStatus(payload.status);
+    }
+    if (payload?.events?.length) {
+      setLiveEvents((current) => mergeWorkbenchEvents(current, payload.events ?? []));
+    }
+  }
+
   function handleInspectorControl(action: MathAgentRuntimeControlAction) {
+    void recordRuntimeControl(action);
+
     if (action === "interrupt") {
+      liveAbortRef.current?.abort();
+      setLiveRuntimeStatus("interrupted");
       stop();
       return;
     }
@@ -268,6 +429,7 @@ export function ChatShell({
         <AgentInspector
           collapsed={workbenchLayout.inspectorCollapsed}
           exportable
+          liveEvents={liveEvents}
           mobileMode="sidebar"
           onControlAction={handleInspectorControl}
           onToggle={() =>
@@ -277,18 +439,27 @@ export function ChatShell({
             }))
           }
           result={latestDiagnosis}
-          runtimeStatus={mapChatStatusToRuntimeStatus(status, latestDiagnosis)}
+          runtimeStatus={getVisibleRuntimeStatus(
+            liveRuntimeStatus,
+            status,
+            latestDiagnosis
+          )}
           width={workbenchLayout.rightWidth}
         />
         {isMobileInspectorOpen && (
           <AgentInspector
             collapsed={false}
             exportable
+            liveEvents={liveEvents}
             mobileMode="drawer"
             onControlAction={handleInspectorControl}
             onToggle={() => setIsMobileInspectorOpen(false)}
             result={latestDiagnosis}
-            runtimeStatus={mapChatStatusToRuntimeStatus(status, latestDiagnosis)}
+            runtimeStatus={getVisibleRuntimeStatus(
+              liveRuntimeStatus,
+              status,
+              latestDiagnosis
+            )}
           />
         )}
       </div>
@@ -404,6 +575,18 @@ function mapChatStatusToRuntimeStatus(
   return result ? "completed" : "idle";
 }
 
+function getVisibleRuntimeStatus(
+  liveStatus: MathAgentRunStatus,
+  chatStatus: string,
+  result: MathDiagnosisToolResult | null
+) {
+  if (liveStatus !== "idle") {
+    return liveStatus;
+  }
+
+  return mapChatStatusToRuntimeStatus(chatStatus, result);
+}
+
 function buildInspectorControlMessage(
   action: MathAgentRuntimeControlAction,
   result: MathDiagnosisToolResult | null
@@ -448,4 +631,103 @@ function getLatestMathDiagnosisResult(
   }
 
   return null;
+}
+
+function getLatestMathDiagnosisToolRequest(messages: ChatMessage[]) {
+  for (const message of [...messages].reverse()) {
+    for (const part of [...(message.parts ?? [])].reverse()) {
+      if (part.type !== "tool-diagnoseMathThinking") {
+        continue;
+      }
+
+      const state = (part as { state?: string }).state;
+      if (state !== "input-streaming" && state !== "input-available") {
+        continue;
+      }
+
+      const request = normalizeMathDiagnosisToolInput(
+        (part as { input?: unknown }).input
+      );
+      if (!request) {
+        continue;
+      }
+
+      return {
+        key: JSON.stringify({
+          problemText: request.problemText,
+          studentSteps: request.studentSteps,
+          confirmedEvidence: request.confirmedEvidence ?? [],
+        }),
+        request,
+      };
+    }
+  }
+
+  return null;
+}
+
+function normalizeMathDiagnosisToolInput(
+  input: unknown
+): MathDiagnosisRequest | null {
+  if (!input || typeof input !== "object") {
+    return null;
+  }
+
+  const candidate = input as Partial<MathDiagnosisRequest>;
+  if (
+    typeof candidate.problemText !== "string" ||
+    typeof candidate.studentSteps !== "string" ||
+    !candidate.problemText.trim()
+  ) {
+    return null;
+  }
+
+  return {
+    problemText: candidate.problemText,
+    studentSteps: candidate.studentSteps,
+    confirmedEvidence: Array.isArray(candidate.confirmedEvidence)
+      ? candidate.confirmedEvidence.filter(
+          (item): item is string => typeof item === "string"
+        )
+      : [],
+    teachingStyle: "socratic",
+    visualMode: "html_card",
+  };
+}
+
+function parseRuntimeSseBlock(block: string) {
+  const dataLine = block
+    .split("\n")
+    .find((line) => line.startsWith("data:"));
+  if (!dataLine) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(dataLine.slice("data:".length).trim()) as {
+      type?: string;
+      runId?: string;
+      status?: MathAgentRunStatus;
+      event?: WorkbenchEvent;
+    };
+  } catch {
+    return null;
+  }
+}
+
+function mergeWorkbenchEvents(
+  current: WorkbenchEvent[],
+  next: WorkbenchEvent[]
+) {
+  const seen = new Set(current.map((item) => item.id));
+  return [
+    ...current,
+    ...next.filter((item) => {
+      if (seen.has(item.id)) {
+        return false;
+      }
+      seen.add(item.id);
+      return true;
+    }),
+  ];
 }

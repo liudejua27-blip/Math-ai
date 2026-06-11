@@ -10,7 +10,10 @@ import type {
   MathAgentRunStatus,
   MathAgentRuntimeControlAction,
 } from "@/lib/ai/runtime/math-agent-runtime";
-import { buildWorkbenchEventsFromDiagnosis } from "@/lib/ai/workbench-events";
+import {
+  buildWorkbenchEventsFromDiagnosis,
+  type WorkbenchEvent,
+} from "@/lib/ai/workbench-events";
 import { cn } from "@/lib/utils";
 import {
   CorrectionCardPanel,
@@ -33,6 +36,7 @@ type AgentInspectorProps = {
   mobileMode?: "drawer" | "sidebar";
   width?: number;
   runtimeStatus?: MathAgentRunStatus;
+  liveEvents?: WorkbenchEvent[];
   onControlAction?: (action: MathAgentRuntimeControlAction) => void;
 };
 
@@ -44,6 +48,7 @@ export function AgentInspector({
   mobileMode = "sidebar",
   width = 380,
   runtimeStatus = "idle",
+  liveEvents = [],
   onControlAction,
 }: AgentInspectorProps) {
   if (mobileMode === "drawer") {
@@ -56,6 +61,7 @@ export function AgentInspector({
             onToggle={onToggle}
             result={result}
             runtimeStatus={runtimeStatus}
+            liveEvents={liveEvents}
             titleAction="关闭"
           />
         </div>
@@ -90,6 +96,7 @@ export function AgentInspector({
           onToggle={onToggle}
           result={result}
           runtimeStatus={runtimeStatus}
+          liveEvents={liveEvents}
           titleAction="收起"
         />
       )}
@@ -103,6 +110,7 @@ function InspectorShell({
   exportable,
   titleAction,
   runtimeStatus,
+  liveEvents,
   onControlAction,
 }: {
   result: MathDiagnosisToolResult | null;
@@ -110,11 +118,17 @@ function InspectorShell({
   exportable: boolean;
   titleAction: string;
   runtimeStatus: MathAgentRunStatus;
+  liveEvents: WorkbenchEvent[];
   onControlAction?: (action: MathAgentRuntimeControlAction) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [reportCopied, setReportCopied] = useState(false);
-  const events = useMemo(() => buildWorkbenchEventsFromDiagnosis(result), [result]);
+  const events = useMemo(() => {
+    if (liveEvents.length > 0) {
+      return liveEvents;
+    }
+    return buildWorkbenchEventsFromDiagnosis(result);
+  }, [liveEvents, result]);
 
   async function copySummary() {
     await navigator.clipboard.writeText(buildExportSummary(result));
@@ -180,7 +194,11 @@ function InspectorShell({
             result={result}
             runtimeStatus={runtimeStatus}
           />
-          <InspectorContent events={events} result={result} />
+          <InspectorContent
+            events={events}
+            result={result}
+            runtimeStatus={runtimeStatus}
+          />
         </div>
       </div>
     </div>
@@ -190,15 +208,17 @@ function InspectorShell({
 function InspectorContent({
   result,
   events,
+  runtimeStatus,
 }: {
   result: MathDiagnosisToolResult | null;
-  events: ReturnType<typeof buildWorkbenchEventsFromDiagnosis>;
+  events: WorkbenchEvent[];
+  runtimeStatus: MathAgentRunStatus;
 }) {
   if (!result) {
     return (
       <>
         <EmptyInspector />
-        <WorkbenchTimeline events={events} runtimeStatus="idle" />
+        <WorkbenchTimeline events={events} runtimeStatus={runtimeStatus} />
       </>
     );
   }
@@ -213,7 +233,7 @@ function InspectorContent({
         {result.correctionCard && (
           <CorrectionCardPanel card={result.correctionCard} compact={true} />
         )}
-        <WorkbenchTimeline events={events} runtimeStatus="completed" />
+        <WorkbenchTimeline events={events} runtimeStatus={runtimeStatus} />
       </>
     );
   }
@@ -230,7 +250,7 @@ function InspectorContent({
       <LearnerMemoryPanel result={result} />
       <RemediationPlanPanel result={result} />
       <GeometryLabRecommendationPanel result={result} />
-      <WorkbenchTimeline events={events} runtimeStatus="completed" />
+      <WorkbenchTimeline events={events} runtimeStatus={runtimeStatus} />
     </>
   );
 }
@@ -364,7 +384,7 @@ function WorkbenchTimeline({
   events,
   runtimeStatus,
 }: {
-  events: ReturnType<typeof buildWorkbenchEventsFromDiagnosis>;
+  events: WorkbenchEvent[];
   runtimeStatus: MathAgentRunStatus;
 }) {
   const liveEvents =
