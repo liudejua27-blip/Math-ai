@@ -52,5 +52,6 @@ opensource-bases/qwen-agent/
 opensource-bases/vercel-ai-chatbot/
 opensource-bases/assistant-ui/
 opensource-bases/assistant-ui-rsc-example/
+opensource-bases/agent-chat-ui/
 opensource-bases/education-agent-candidates/*/
 !opensource-bases/education-agent-candidates/README.md

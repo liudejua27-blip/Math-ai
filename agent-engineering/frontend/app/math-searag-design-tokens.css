@@ -118,6 +118,39 @@
   --ms-resize-hover: rgb(85 167 255 / 0.5);
 }
 
+:root,
+.dark {
+  --ms-bg-app: var(--background);
+  --ms-bg-sidebar: var(--sidebar);
+  --ms-bg-canvas: var(--background);
+  --ms-bg-inspector: var(--background);
+  --ms-surface-card: var(--card);
+  --ms-surface-elevated: var(--popover);
+  --ms-surface-subtle: var(--muted);
+  --ms-surface-hover: var(--accent);
+  --ms-border: var(--border);
+  --ms-border-muted: var(--sidebar-border);
+  --ms-border-strong: var(--ring);
+  --ms-text: var(--foreground);
+  --ms-text-muted: var(--muted-foreground);
+  --ms-text-faint: var(--muted-foreground);
+  --ms-text-placeholder: var(--muted-foreground);
+  --ms-accent: var(--primary);
+  --ms-accent-soft: var(--accent);
+  --ms-success: var(--chart-2);
+  --ms-success-soft: var(--muted);
+  --ms-danger: var(--destructive);
+  --ms-danger-soft: var(--muted);
+  --ms-warning-soft: var(--muted);
+  --ms-shadow-chip: none;
+  --ms-shadow-card-soft: 0 1px 2px rgb(0 0 0 / 0.04);
+  --ms-shadow-card-strong: 0 4px 16px -8px rgb(0 0 0 / 0.12), 0 1px 2px rgb(0 0 0 / 0.05);
+  --ms-shadow-panel: 0 4px 16px -8px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
+  --ms-shadow-composer: 0 4px 16px -8px rgb(0 0 0 / 0.08), 0 1px 2px rgb(0 0 0 / 0.04);
+  --ms-resize-idle: var(--border);
+  --ms-resize-hover: var(--ring);
+}
+
 @layer components {
   .ms-workbench-shell,
   .ds-workbench-shell {

@@ -7,6 +7,7 @@ import {
 } from "@assistant-ui/react-ai-sdk";
 import { lastAssistantMessageIsCompleteWithToolCalls } from "ai";
 import { Thread } from "@/components/assistant-ui/thread";
+import { AgentProcessRibbon } from "@/components/assistant-ui/agent-process-ribbon";
 import { ThreadListSidebar } from "@/components/assistant-ui/threadlist-sidebar";
 import {
   SidebarInset,
@@ -28,7 +29,7 @@ export function MathAgentAssistant() {
       <SidebarProvider>
         <div className="flex h-dvh w-full bg-background pr-0.5">
           <ThreadListSidebar />
-          <SidebarInset>
+          <SidebarInset className="flex h-dvh flex-col">
             <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur">
               <SidebarTrigger />
               <Separator orientation="vertical" className="mr-2 h-4" />
@@ -41,7 +42,8 @@ export function MathAgentAssistant() {
                 </span>
               </div>
             </header>
-            <main className="h-[calc(100dvh-3.5rem)] overflow-hidden">
+            <AgentProcessRibbon />
+            <main className="min-h-0 flex-1 overflow-hidden">
               <Thread />
             </main>
           </SidebarInset>
