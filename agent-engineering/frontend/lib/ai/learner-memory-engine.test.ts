@@ -100,6 +100,13 @@ const guidance = buildLearnerMemoryGuidance({
 });
 assert.equal(guidance?.canShowFullSolution, false);
 assert.equal(guidance?.variantLevel, 1);
+assert.equal(guidance?.recommendation?.nextProblem.type, "surface_variant");
+assert.equal(guidance?.recommendation?.reviewPlan.shouldEnter, true);
+assert.equal(guidance?.recommendation?.heartbeat.enabled, true);
+assert.equal(
+  guidance?.recommendation?.adaptiveTeaching.canShowFullSolution,
+  false
+);
 
 const memoryDrivenPlan = applyLearnerMemoryToRemediationPlan({
   plan: {

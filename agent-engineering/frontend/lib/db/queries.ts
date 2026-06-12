@@ -21,6 +21,7 @@ import type {
   MathDiagnosisResult,
   MathDiagnosisToolResult,
 } from "../ai/math-diagnosis-types";
+import type { LearnerRecommendation } from "../ai/learner-memory-types";
 import type { DraftOCRResult } from "../ai/draft-ocr-types";
 import type {
   AtomMemoryView,
@@ -749,6 +750,17 @@ export async function saveMathDiagnosisSession({
           weakAtoms: result.learnerMemoryDelta?.summary.weakAtoms ?? [],
           recommendedPlan:
             result.learnerMemoryDelta?.summary.recommendedPlan ?? [],
+          learnerRecommendation:
+            result.learnerMemoryGuidance?.recommendation ?? null,
+          nextProblemRecommendation:
+            result.learnerMemoryGuidance?.recommendation?.nextProblem ?? null,
+          heartbeat:
+            result.learnerMemoryGuidance?.recommendation?.heartbeat ?? null,
+          reviewPlan:
+            result.learnerMemoryGuidance?.recommendation?.reviewPlan ?? null,
+          recurrencePrediction:
+            result.learnerMemoryGuidance?.recommendation?.recurrencePrediction ??
+            null,
         },
         updatedAt: new Date(),
       })
@@ -1226,6 +1238,10 @@ export async function getStudentWorkbenchSummary(
     const planFromProfile = toStringArray(
       getRecordValue(profile.masterySummary, "recommendedPlan")
     );
+    const learnerRecommendation = getRecordValue(
+      profile.masterySummary,
+      "learnerRecommendation"
+    );
 
     return {
       profile: {
@@ -1253,6 +1269,9 @@ export async function getStudentWorkbenchSummary(
         ...planFromWeekly,
         ...planFromProfile.filter((item) => !planFromWeekly.includes(item)),
       ].slice(0, 6),
+      learnerRecommendation: isLearnerRecommendation(learnerRecommendation)
+        ? learnerRecommendation
+        : null,
     };
   } catch (_error) {
     throw new ChatbotError(
@@ -2034,5 +2053,19 @@ function isWorkbenchEvent(value: unknown): value is WorkbenchEvent {
     "title" in value &&
     "status" in value &&
     "detail" in value
+  );
+}
+
+function isLearnerRecommendation(
+  value: unknown
+): value is LearnerRecommendation {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "nextProblem" in value &&
+    "adaptiveTeaching" in value &&
+    "reviewPlan" in value &&
+    "heartbeat" in value &&
+    "recurrencePrediction" in value
   );
 }

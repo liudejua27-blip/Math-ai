@@ -232,9 +232,10 @@ export function LearnerMemoryPanel({
   if (!result.learnerMemoryDelta) {
     return null;
   }
+  const recommendation = result.learnerMemoryGuidance?.recommendation;
 
   return (
-    <InfoBlock title="学习画像更新">
+    <InfoBlock title="学习画像与推荐">
       <div className="grid gap-2">
         {result.learnerMemoryDelta.atomUpdates.slice(0, 4).map((delta) => (
           <div className="ms-card rounded-md border px-3 py-2 text-sm" key={delta.atomId}>
@@ -247,6 +248,42 @@ export function LearnerMemoryPanel({
             </div>
           </div>
         ))}
+        {recommendation && (
+          <div className="ms-card rounded-md border px-3 py-2 text-sm">
+            <div className="font-medium">
+              下一题推荐：{recommendation.nextProblem.title}
+            </div>
+            <div className="mt-1 text-muted-foreground leading-6">
+              {recommendation.nextProblem.prompt}
+            </div>
+            <div className="mt-2 grid gap-1 text-muted-foreground text-xs">
+              <div>
+                追问难度：{recommendation.adaptiveTeaching.questionDifficulty}
+              </div>
+              <div>
+                讲解方式：{recommendation.adaptiveTeaching.explanationStyle}
+              </div>
+              <div>
+                完整解析：
+                {recommendation.adaptiveTeaching.canShowFullSolution
+                  ? "允许在学生尝试后开放"
+                  : "暂不开放，先追问和变式"}
+              </div>
+              <div>
+                复发预测：{recommendation.recurrencePrediction.risk} ·{" "}
+                {Math.round(recommendation.recurrencePrediction.score * 100)}%
+              </div>
+              <div>
+                触发因素：{recommendation.recurrencePrediction.factors.join("、")}
+              </div>
+            </div>
+            {recommendation.heartbeat.enabled && (
+              <div className="mt-2 rounded-md bg-amber-500/10 px-2 py-1.5 text-amber-800 text-xs leading-5 dark:text-amber-200">
+                {recommendation.heartbeat.message}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </InfoBlock>
   );

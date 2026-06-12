@@ -7,6 +7,7 @@ import type {
 } from "./math-diagnosis-types";
 import type { SocraticPolicyDecision } from "./socratic-policy-engine";
 import type { LearnerMemoryDelta } from "./learner-memory-types";
+import { buildLearnerRecommendation } from "./learner-recommendation-engine";
 import type { RemediationPlan, VariantLevel } from "./remediation-loop-types";
 import type { VerifierTrace } from "./verifier-trace-types";
 
@@ -141,7 +142,11 @@ export function buildLearnerMemoryGuidance({
   learnerMemoryDelta?: LearnerMemoryDelta;
   atoms: MathDiagnosisResult["misconceptionAtoms"];
 }): LearnerMemoryGuidance | undefined {
-  if (!learnerMemoryDelta) {
+  const recommendation = buildLearnerRecommendation({
+    learnerMemoryDelta,
+    targetAtoms: atoms,
+  });
+  if (!learnerMemoryDelta || !recommendation) {
     return;
   }
 
@@ -153,42 +158,35 @@ export function buildLearnerMemoryGuidance({
 
   if (!weakest) {
     return {
-      nextProblemRecommendation: "进入同因变式迁移题，验证本题订正是否真正掌握。",
-      questionDifficulty: "transfer",
-      explanationStyle: "variant_first",
+      nextProblemRecommendation: recommendation.nextProblem.prompt,
+      questionDifficulty: recommendation.adaptiveTeaching.questionDifficulty,
+      explanationStyle: recommendation.adaptiveTeaching.explanationStyle,
       variantLevel: 3,
-      canShowFullSolution: false,
-      shouldTriggerReviewPlan: false,
+      canShowFullSolution: recommendation.adaptiveTeaching.canShowFullSolution,
+      shouldTriggerReviewPlan: recommendation.reviewPlan.shouldEnter,
       targetAtoms: atoms.slice(0, 2).map((atom) => atom.id),
-      reason: "本次没有明显弱错因，适合用迁移变式做验证。",
+      reason: recommendation.nextProblem.reason,
+      recommendation,
     };
   }
 
-  const highRecurrence = weakest.recurrenceRate30d >= 0.6;
-  const lowTransfer = weakest.transferRate < 0.4;
   const targetAtoms = [
     weakest.atomId,
     ...atomUpdates
       .filter((item) => item.atomId !== weakest.atomId && item.mastery !== "stable")
       .map((item) => item.atomId),
   ].slice(0, 3);
-  const isWeak = weakest.mastery === "weak";
 
   return {
-    nextProblemRecommendation: `下一题优先练 ${weakest.label} 的同因变式。`,
-    questionDifficulty: isWeak || (highRecurrence && lowTransfer) ? "micro" : "standard",
-    explanationStyle: hasGeometryAtom(targetAtoms)
-      ? "visual_first"
-      : isWeak || highRecurrence
-        ? "micro_scaffold"
-        : "socratic_standard",
+    nextProblemRecommendation: recommendation.nextProblem.prompt,
+    questionDifficulty: recommendation.adaptiveTeaching.questionDifficulty,
+    explanationStyle: recommendation.adaptiveTeaching.explanationStyle,
     variantLevel: chooseVariantLevel(weakest),
-    canShowFullSolution: !(isWeak || (highRecurrence && lowTransfer)),
-    shouldTriggerReviewPlan: isWeak || highRecurrence || lowTransfer,
+    canShowFullSolution: recommendation.adaptiveTeaching.canShowFullSolution,
+    shouldTriggerReviewPlan: recommendation.reviewPlan.shouldEnter,
     targetAtoms,
-    reason: highRecurrence
-      ? "该错因复发率较高，先降低追问粒度并触发复习计划。"
-      : "画像显示该错因仍未稳定，下一步用同因变式巩固。",
+    reason: `${recommendation.nextProblem.reason} ${recommendation.reviewPlan.reason}`,
+    recommendation,
   };
 }
 
@@ -223,9 +221,59 @@ export function applyLearnerMemoryToPolicy({
     targetAtoms: guidance.targetAtoms.length
       ? guidance.targetAtoms
       : policy.targetAtoms,
-    recommendedAction: guidance.shouldTriggerReviewPlan
-      ? "trigger_review_plan"
-      : policy.recommendedAction,
+    recommendedAction: guidance.recommendation?.nextProblem.type === "geometry_lab"
+      ? "enter_geometry_lab_after_memory_recommendation"
+      : guidance.shouldTriggerReviewPlan
+        ? "trigger_review_plan"
+        : policy.recommendedAction,
+    memoryGuidance: guidance,
+  };
+}
+
+export function applyLearnerRecommendationToPolicy({
+  policy,
+  guidance,
+}: {
+  policy: SocraticPolicyDecision;
+  guidance?: LearnerMemoryGuidance;
+}): SocraticPolicyDecision {
+  if (!guidance) {
+    return policy;
+  }
+
+  const nextPrompts =
+    guidance.questionDifficulty === "micro"
+      ? [
+          "先只回答一个小问题：这一步使用了题目里的哪一个条件？",
+          ...policy.nextPrompts.slice(0, 2),
+        ]
+      : guidance.questionDifficulty === "challenge"
+        ? [
+            "先尝试独立完成下一步，再说明你为什么认为这个结论可以迁移。",
+            ...policy.nextPrompts.slice(0, 1),
+          ]
+        : policy.nextPrompts;
+
+  return {
+    ...policy,
+    allowedContent: {
+      ...policy.allowedContent,
+      canShowFullSolution:
+        policy.allowedContent.canShowFullSolution && guidance.canShowFullSolution,
+      canShowFinalAnswer:
+        policy.allowedContent.canShowFinalAnswer && guidance.canShowFullSolution,
+    },
+    nextPrompts,
+    reason: `${policy.reason} LearnerMemory：${guidance.reason}`,
+    targetAtoms: guidance.targetAtoms.length
+      ? guidance.targetAtoms
+      : policy.targetAtoms,
+    recommendedAction:
+      guidance.recommendation?.nextProblem.type === "geometry_lab"
+        ? "enter_geometry_lab_after_memory_recommendation"
+        : guidance.shouldTriggerReviewPlan
+          ? "trigger_review_plan"
+          : policy.recommendedAction,
     memoryGuidance: guidance,
   };
 }

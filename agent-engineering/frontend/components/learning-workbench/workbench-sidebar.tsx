@@ -2,6 +2,7 @@
 
 import type React from "react";
 import type { CSSProperties } from "react";
+import type { LearnerRecommendation } from "@/lib/ai/learner-memory-types";
 import type { MathDiagnosisToolResult } from "@/lib/ai/math-diagnosis-types";
 import type {
   DiagnosisHistoryItem,
@@ -26,22 +27,15 @@ export function LearningWorkbenchSidebar({
   width,
   activeTaskLabel,
 }: LearningWorkbenchSidebarProps) {
-  const hasDiagnosis =
-    Boolean(latestDiagnosis) && !(latestDiagnosis && "error" in latestDiagnosis);
-  const latestAtoms =
-    latestDiagnosis && !("error" in latestDiagnosis)
-      ? latestDiagnosis.misconceptionAtoms.slice(0, 4)
-      : [];
-  const planItems =
-    workbenchSummary?.recommendedPlan.length
-      ? workbenchSummary.recommendedPlan
-      : hasDiagnosis
-        ? ["完成订正卡", "做 2 道同因变式", "复盘第一错步"]
-        : [];
-  const geometryLabs =
-    latestDiagnosis && !("error" in latestDiagnosis)
-      ? (latestDiagnosis.recommendedGeometryLabs ?? []).slice(0, 2)
-      : [];
+  const latestResult =
+    latestDiagnosis && !("error" in latestDiagnosis) ? latestDiagnosis : null;
+  const latestAtoms = latestResult?.misconceptionAtoms.slice(0, 4) ?? [];
+  const recommendation =
+    latestResult?.learnerMemoryGuidance?.recommendation ??
+    workbenchSummary?.learnerRecommendation ??
+    null;
+  const planItems = buildPlanItems(workbenchSummary, recommendation, Boolean(latestResult));
+  const geometryLabs = latestResult?.recommendedGeometryLabs?.slice(0, 2) ?? [];
 
   return (
     <aside
@@ -54,7 +48,7 @@ export function LearningWorkbenchSidebar({
       <div className="border-border/50 border-b px-4 py-3">
         <div className="font-semibold text-sm">Math-SEARAG Workbench</div>
         <div className="mt-1 text-muted-foreground text-xs">
-          高中数学思维诊断操作台
+          高中数学思维诊断工作台
         </div>
         {activeTaskLabel && (
           <div className="mt-2 rounded-md border border-border/50 bg-background/70 px-2 py-1.5 text-xs">
@@ -74,11 +68,19 @@ export function LearningWorkbenchSidebar({
                 </span>
               </div>
               <div className="mt-2 text-muted-foreground text-xs leading-5">
-                画像会根据错因复发、变式迁移和订正表现持续更新。
+                画像会根据错因复发、变式迁移和订正表现持续更新，并驱动下一题推荐。
               </div>
             </div>
           ) : (
             <EmptyState text="完成一次诊断后生成画像。" />
+          )}
+        </SidebarSection>
+
+        <SidebarSection title="主动复盘提醒">
+          {recommendation ? (
+            <RecommendationCard recommendation={recommendation} />
+          ) : (
+            <EmptyState text="系统会在发现高复发错因后生成复盘提醒。" />
           )}
         </SidebarSection>
 
@@ -101,7 +103,7 @@ export function LearningWorkbenchSidebar({
                     {Math.round(atom.transferRate * 100)}%
                   </div>
                   <div className="mt-1 text-muted-foreground text-[11px]">
-                    订正率 {Math.round(atom.selfRepairRate * 100)}%
+                    订正修复率 {Math.round(atom.selfRepairRate * 100)}%
                   </div>
                 </div>
               ))}
@@ -113,7 +115,7 @@ export function LearningWorkbenchSidebar({
               ))}
             </div>
           ) : (
-            <EmptyState text="暂无错因记录，先输入题目和自己的步骤。" />
+            <EmptyState text="暂无错因记录，先输入题目和自己的解题步骤。" />
           )}
         </SidebarSection>
 
@@ -186,6 +188,44 @@ export function LearningWorkbenchSidebar({
   );
 }
 
+function RecommendationCard({
+  recommendation,
+}: {
+  recommendation: LearnerRecommendation;
+}) {
+  return (
+    <div className="ms-card rounded-lg border p-3 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-medium text-sm">{recommendation.nextProblem.title}</div>
+        <span className="rounded-md bg-primary/10 px-2 py-0.5 text-primary">
+          {formatRisk(recommendation.recurrencePrediction.risk)}
+        </span>
+      </div>
+      <div className="mt-2 text-muted-foreground leading-5">
+        {recommendation.nextProblem.prompt}
+      </div>
+      <div className="mt-3 grid gap-1 text-muted-foreground">
+        <div>追问难度：{formatDifficulty(recommendation.adaptiveTeaching.questionDifficulty)}</div>
+        <div>讲解方式：{formatExplanationStyle(recommendation.adaptiveTeaching.explanationStyle)}</div>
+        <div>
+          完整解析：
+          {recommendation.adaptiveTeaching.canShowFullSolution ? "可在尝试后开放" : "先暂不开放"}
+        </div>
+      </div>
+      {recommendation.heartbeat.enabled && (
+        <div className="mt-3 rounded-md border border-amber-200/70 bg-amber-50 px-2 py-2 text-amber-900 leading-5 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100">
+          {recommendation.heartbeat.message}
+          {recommendation.heartbeat.nextCheckInAt && (
+            <div className="mt-1 opacity-80">
+              下次提醒：{formatDate(recommendation.heartbeat.nextCheckInAt)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SidebarSection({
   children,
   title,
@@ -231,6 +271,28 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
+function buildPlanItems(
+  workbenchSummary: StudentWorkbenchSummary | null,
+  recommendation: LearnerRecommendation | null,
+  hasLatestDiagnosis: boolean
+) {
+  const plan = workbenchSummary?.recommendedPlan ?? [];
+  if (plan.length) {
+    return plan;
+  }
+  if (recommendation) {
+    return [
+      recommendation.nextProblem.title,
+      recommendation.reviewPlan.reason,
+      recommendation.adaptiveTeaching.fullSolutionReason,
+    ];
+  }
+  if (hasLatestDiagnosis) {
+    return ["完成订正卡", "做 2 道同因变式", "复盘第一错步"];
+  }
+  return [];
+}
+
 function formatWeeklyState(state: string) {
   if (state === "needs_review") {
     return "待复核";
@@ -241,6 +303,36 @@ function formatWeeklyState(state: string) {
   }
 
   return "新手期";
+}
+
+function formatDifficulty(value: LearnerRecommendation["adaptiveTeaching"]["questionDifficulty"]) {
+  const labels = {
+    micro: "微脚手架",
+    standard: "标准追问",
+    transfer: "迁移追问",
+    challenge: "挑战迁移",
+  };
+  return labels[value];
+}
+
+function formatExplanationStyle(value: LearnerRecommendation["adaptiveTeaching"]["explanationStyle"]) {
+  const labels = {
+    micro_scaffold: "小步纠偏",
+    socratic_standard: "苏格拉底追问",
+    visual_first: "先看图再推理",
+    variant_first: "先做变式",
+  };
+  return labels[value];
+}
+
+function formatRisk(value: LearnerRecommendation["recurrencePrediction"]["risk"]) {
+  if (value === "high") {
+    return "高复发";
+  }
+  if (value === "medium") {
+    return "中复发";
+  }
+  return "低复发";
 }
 
 function formatDate(value: string) {

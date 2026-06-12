@@ -16,6 +16,7 @@ export type WorkbenchEventType =
   | "policy_decided"
   | "correction_card_ready"
   | "learner_memory_delta_ready"
+  | "learner_recommendation_ready"
   | "remediation_plan_ready"
   | "geometry_lab_recommended"
   | "persistence_started"
@@ -161,6 +162,18 @@ export function buildWorkbenchEventsFromDiagnosis(
         "completed",
         `${result.learnerMemoryDelta.atomUpdates.length} 个错因画像变化`,
         { phase: "memory" }
+      )
+    );
+  }
+
+  if (result.learnerMemoryGuidance?.recommendation) {
+    events.push(
+      event(
+        "learner_recommendation_ready",
+        "LearnerMemory 推荐已生成",
+        "completed",
+        result.learnerMemoryGuidance.recommendation.nextProblem.reason,
+        { phase: "memory", replayable: true }
       )
     );
   }

@@ -1,6 +1,11 @@
 import type { GeometryLabRecommendation } from "../geometry/geometry-scene-types";
 import type { SocraticPolicyDecision } from "./socratic-policy-engine";
-import type { LearnerMemoryDelta } from "./learner-memory-types";
+import type {
+  LearnerExplanationStyle,
+  LearnerMemoryDelta,
+  LearnerQuestionDifficulty,
+  LearnerRecommendation,
+} from "./learner-memory-types";
 import type { RemediationPlan } from "./remediation-loop-types";
 import type { VerifierTrace } from "./verifier-trace-types";
 
@@ -179,17 +184,14 @@ export type LayeredVerifierReport = {
 
 export type LearnerMemoryGuidance = {
   nextProblemRecommendation: string;
-  questionDifficulty: "micro" | "standard" | "transfer" | "challenge";
-  explanationStyle:
-    | "micro_scaffold"
-    | "socratic_standard"
-    | "visual_first"
-    | "variant_first";
+  questionDifficulty: LearnerQuestionDifficulty;
+  explanationStyle: LearnerExplanationStyle;
   variantLevel: 1 | 2 | 3 | 4;
   canShowFullSolution: boolean;
   shouldTriggerReviewPlan: boolean;
   targetAtoms: string[];
   reason: string;
+  recommendation?: LearnerRecommendation;
 };
 
 export type MathThinkingGraphSpec = {

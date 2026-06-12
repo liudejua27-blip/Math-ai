@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {
-  applyLearnerMemoryToPolicy,
+  applyLearnerRecommendationToPolicy,
   buildLearnerMemoryGuidance,
   buildStepAlignmentDetails,
   expandMisconceptionAtoms,
@@ -135,7 +135,7 @@ const policy: SocraticPolicyDecision = {
   nextPrompts: ["原始追问"],
   reason: "基础策略",
 };
-const guidedPolicy = applyLearnerMemoryToPolicy({ policy, guidance });
+const guidedPolicy = applyLearnerRecommendationToPolicy({ policy, guidance });
 assert.equal(guidedPolicy.allowedContent.canShowFullSolution, false);
 assert.equal(guidedPolicy.recommendedAction, "trigger_review_plan");
 assert.match(guidedPolicy.nextPrompts[0], /小问题/);

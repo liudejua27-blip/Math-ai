@@ -1,4 +1,5 @@
 import type { MathDiagnosisResult } from "./math-diagnosis-types";
+import type { LearnerRecommendation } from "./learner-memory-types";
 import type { WorkbenchEvent } from "./workbench-events";
 
 export type AtomMemoryView = {
@@ -57,4 +58,5 @@ export type StudentWorkbenchSummary = {
     createdAt: string;
   } | null;
   recommendedPlan: string[];
+  learnerRecommendation?: LearnerRecommendation | null;
 };

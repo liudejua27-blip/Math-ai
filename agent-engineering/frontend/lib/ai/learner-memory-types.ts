@@ -53,3 +53,57 @@ export type LearnerMemoryDelta = {
     recommendedPlan: string[];
   };
 };
+
+export type LearnerQuestionDifficulty =
+  | "micro"
+  | "standard"
+  | "transfer"
+  | "challenge";
+
+export type LearnerExplanationStyle =
+  | "micro_scaffold"
+  | "socratic_standard"
+  | "visual_first"
+  | "variant_first";
+
+export type LearnerRecurrenceRisk = "low" | "medium" | "high";
+
+export type LearnerRecommendation = {
+  nextProblem: {
+    type:
+      | "surface_variant"
+      | "structure_variant"
+      | "transfer_variant"
+      | "geometry_lab"
+      | "review_mix";
+    title: string;
+    prompt: string;
+    targetAtoms: string[];
+    difficulty: LearnerQuestionDifficulty;
+    reason: string;
+  };
+  adaptiveTeaching: {
+    questionDifficulty: LearnerQuestionDifficulty;
+    explanationStyle: LearnerExplanationStyle;
+    canShowFullSolution: boolean;
+    fullSolutionReason: string;
+  };
+  reviewPlan: {
+    shouldEnter: boolean;
+    cadence: "none" | "tomorrow" | "three_day" | "weekly";
+    nextCheckInAt?: string;
+    predictedRecurrenceRisk: LearnerRecurrenceRisk;
+    reason: string;
+  };
+  heartbeat: {
+    enabled: boolean;
+    message: string;
+    nextCheckInAt?: string;
+  };
+  recurrencePrediction: {
+    atomId: string | null;
+    risk: LearnerRecurrenceRisk;
+    score: number;
+    factors: string[];
+  };
+};

@@ -17,8 +17,8 @@ import { decideSocraticPolicy } from "./socratic-policy-engine";
 import { verifyStudentSteps } from "./step-verifier-engine";
 import { buildVerifierTraces } from "./verifier-trace-engine";
 import {
-  applyLearnerMemoryToPolicy,
   applyLearnerMemoryToRemediationPlan,
+  applyLearnerRecommendationToPolicy,
   buildClaimVerifierTraces,
   buildLearnerMemoryGuidance,
   buildStepAlignmentDetails,
@@ -273,10 +273,19 @@ export async function runMathDiagnosisWorkflow(
     plan: baseRemediationPlan,
     guidance: learnerMemoryGuidance,
   });
-  const policyDecision = applyLearnerMemoryToPolicy({
+  const policyDecision = applyLearnerRecommendationToPolicy({
     policy: basePolicyDecision,
     guidance: learnerMemoryGuidance,
   });
+  if (learnerMemoryGuidance?.recommendation) {
+    await emit(
+      "learner_recommendation_ready",
+      "LearnerMemory 推荐已生成",
+      "completed",
+      learnerMemoryGuidance.recommendation.nextProblem.reason,
+      { phase: "memory", replayable: true }
+    );
+  }
   await emit("policy_decided", "教学策略已决定", "completed", policyDecision.reason, {
     phase: "workflow",
   });
