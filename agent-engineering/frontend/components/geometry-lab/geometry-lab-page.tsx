@@ -7,6 +7,7 @@ import {
   getGeometryLevelDisplay,
   sortGeometryLevelsForLearningPath,
 } from "@/lib/geometry/geometry-learning-flow";
+import { evaluateGeometrySelection } from "@/lib/geometry/geometry-reasoning-engine";
 import { validateGeometrySceneSpec } from "@/lib/geometry/geometry-scene-validator";
 import { GeometryAttemptSummary } from "./geometry-attempt-summary";
 import { GeometryCanvas } from "./geometry-canvas";
@@ -48,11 +49,14 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
   );
   const display = getGeometryLevelDisplay(activeLevel);
   const validation = validateGeometrySceneSpec(activeLevel.scene);
-  const correctCount = activeLevel.scene.targets.filter((target) =>
-    target.correctRefs.some((refId) => selectedRefs.includes(refId))
-  ).length;
+  const reasoningFeedback = evaluateGeometrySelection({
+    level: activeLevel,
+    selectedRefs,
+  });
+  const correctCount = reasoningFeedback.solvedTargetIds.length;
   const passed =
     correctCount >= activeLevel.scene.assessment.passRule.minCorrectTargets &&
+    reasoningFeedback.wrongRefs.length === 0 &&
     (!activeLevel.scene.assessment.passRule.requireReason ||
       reasonText.trim().length >= 8);
   const completed = completedLevelIds.includes(activeLevel.levelId);
@@ -143,6 +147,9 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
           metadata: {
             displayTitle: display.title,
             activeTimelineId,
+            reasoningFeedback,
+            stepAlignmentEvidence: reasoningFeedback.stepAlignmentEvidence,
+            learnerMemorySignal: reasoningFeedback.learnerMemorySignal,
           },
         }),
       }
@@ -209,9 +216,9 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
             onSelectLevel={selectLevel}
           />
           <GeometryTaskPanel
+            level={activeLevel}
             onSelectRef={toggleRef}
             reasonText={reasonText}
-            scene={activeLevel.scene}
             selectedRefs={selectedRefs}
             setReasonText={setReasonText}
           />
@@ -221,7 +228,7 @@ export function GeometryLabPage({ initialLevelId }: GeometryLabPageProps) {
             scene={activeLevel.scene}
           />
           <GeometryEvidencePanel
-            scene={activeLevel.scene}
+            level={activeLevel}
             selectedRefs={selectedRefs}
           />
         </aside>

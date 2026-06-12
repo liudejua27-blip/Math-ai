@@ -39,7 +39,10 @@ export function GeometryAttemptSummary({
         <div className="grid gap-3 sm:grid-cols-4">
           <Metric label="目标命中" value={`${correctCount}/${level.scene.targets.length}`} />
           <Metric label="通过要求" value={`${passRule.minCorrectTargets} 个目标`} />
-          <Metric label="训练状态" value={completed ? "已完成" : passed ? "可订正" : "进行中"} />
+          <Metric
+            label="训练状态"
+            value={completed ? "已完成" : passed ? "可订正" : "进行中"}
+          />
           <Metric label="已选对象" value={`${selectedRefs.length} 个`} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -69,7 +72,8 @@ export function GeometryAttemptSummary({
         <div className="mt-2 text-muted-foreground text-xs">
           {saveStatus === "saving" && "正在写入学习闭环..."}
           {saveStatus === "saved" && "已写入学习画像和训练记录。"}
-          {saveStatus === "error" && "当前为本地完成状态，登录后可同步到学习画像。"}
+          {saveStatus === "error" &&
+            "当前为本地完成状态，登录并配置数据库后可同步到学习画像。"}
         </div>
       )}
       {variantOpen && (

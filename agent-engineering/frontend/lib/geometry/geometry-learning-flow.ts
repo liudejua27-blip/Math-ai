@@ -14,21 +14,22 @@ const FEATURED_COPY: Record<
 > = {
   "G1-4": {
     title: "正方体线面角",
-    summary: "先找斜线在底面的射影，再把线面角转成平面角。",
+    summary: "先找斜线在底面上的投影，再把线面角转成平面角。",
     exampleProblem:
       "正方体 ABCD-A1B1C1D1 中，求 A1C 与底面 ABCD 所成角。",
     variantPrompt:
-      "变式：把斜线改为 B1D，先指出它在底面上的射影，再说明线面角是哪一个平面角。",
-    completionHint: "订正完成后，下一题优先练“找射影再看角”。",
+      "变式：把斜线改为 B1D，先指出它在底面上的投影，再说明线面角是哪一个平面角。",
+    completionHint: "订正完成后，下一题优先练“找投影再看角”。",
   },
   "G2-2": {
     title: "三棱锥二面角",
-    summary: "二面角不能直接看空间夹角，要在垂直于棱的辅助截面里看平面角。",
+    summary:
+      "二面角不能直接看空间夹角，要在垂直于公共棱的辅助截面里看平面角。",
     exampleProblem:
       "三棱锥 P-ABC 中，求二面角 P-AB-C，先选择辅助线或辅助面。",
     variantPrompt:
       "变式：把公共棱换成 AC，先判断应该作哪一个垂直于 AC 的辅助截面。",
-    completionHint: "订正完成后，重点复盘“垂直于棱的截面”。",
+    completionHint: "订正完成后，重点复盘“垂直于公共棱的截面”。",
   },
   "G1-6": {
     title: "截面/辅助面构造",
@@ -57,7 +58,8 @@ export function getGeometryLevelDisplay(level: GeometryLevel) {
       featured?.variantPrompt ??
       "变式：更换一个点、线或面，重新说明你的辅助构造依据。",
     completionHint:
-      featured?.completionHint ?? "订正完成后，用同因变式检查是否真正迁移。",
+      featured?.completionHint ??
+      "订正完成后，用同因变式检查是否真正迁移。",
   };
 }
 

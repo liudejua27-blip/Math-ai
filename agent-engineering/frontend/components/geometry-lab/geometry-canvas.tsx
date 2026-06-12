@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { GeometrySceneSpec } from "@/lib/geometry/geometry-scene-types";
-import { GeometrySceneRenderer } from "./geometry-scene-renderer";
 import { GeometryR3FScene } from "./geometry-r3f-scene";
+import { GeometrySceneRenderer } from "./geometry-scene-renderer";
 
 type GeometryCanvasProps = {
   scene: GeometrySceneSpec;
@@ -28,7 +28,7 @@ export function GeometryCanvas({
         <div>
           <div className="font-semibold text-sm">{displayTitle}</div>
           <div className="text-muted-foreground text-xs">
-            {scene.template} · GeometrySceneSpec v{scene.version}
+            {scene.template} / GeometrySceneSpec v{scene.version}
           </div>
         </div>
         <div className="flex items-center gap-3">

@@ -1,17 +1,20 @@
 "use client";
 
-import type { GeometrySceneSpec } from "@/lib/geometry/geometry-scene-types";
+import { evaluateGeometrySelection } from "@/lib/geometry/geometry-reasoning-engine";
+import type { GeometryLevel } from "@/lib/geometry/geometry-scene-types";
 
 type GeometryEvidencePanelProps = {
-  scene: GeometrySceneSpec;
+  level: GeometryLevel;
   selectedRefs: string[];
 };
 
 export function GeometryEvidencePanel({
-  scene,
+  level,
   selectedRefs,
 }: GeometryEvidencePanelProps) {
+  const scene = level.scene;
   const selected = new Set(selectedRefs);
+  const feedback = evaluateGeometrySelection({ level, selectedRefs });
   const evidence = [
     ...scene.edges
       .filter((edge) => edge.evidenceId || selected.has(edge.id))
@@ -47,11 +50,27 @@ export function GeometryEvidencePanel({
             >
               <div className="font-medium">{item.label}</div>
               <div className="mt-1 text-muted-foreground text-xs">
-                {item.id} · {item.type}
+                {item.id} / {item.type}
               </div>
             </div>
           ))
         )}
+      </div>
+      <div className="mt-4">
+        <div className="font-semibold text-sm">Step Alignment 回写</div>
+        <div className="mt-2 grid gap-2">
+          {feedback.stepAlignmentEvidence.map((claim) => (
+            <div
+              className="rounded-md border border-border bg-background px-3 py-2 text-xs leading-5"
+              key={claim.claimId}
+            >
+              <div className="font-medium">{claim.text}</div>
+              <div className="mt-1 text-muted-foreground">
+                refs: {claim.refs.join(", ")} / status: {claim.status}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );

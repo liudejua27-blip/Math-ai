@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/app/(auth)/auth";
 import { saveGeometryAttempt } from "@/lib/db/queries";
+import { getGeometryLevel } from "@/lib/geometry/geometry-levels";
+import { evaluateGeometrySelection } from "@/lib/geometry/geometry-reasoning-engine";
 
 const geometryAttemptSchema = z.object({
   levelId: z.string().trim().min(1).max(64),
@@ -42,9 +44,39 @@ export async function POST(request: Request) {
     );
   }
 
+  const level = getGeometryLevel(parsed.data.levelId);
+  const reasoningFeedback = level
+    ? evaluateGeometrySelection({
+        level,
+        selectedRefs: parsed.data.selectedRefs,
+      })
+    : null;
+  const correctCount =
+    reasoningFeedback?.solvedTargetIds.length ?? parsed.data.correctCount;
+  const passed = reasoningFeedback
+    ? reasoningFeedback.missingTargetIds.length === 0 &&
+      reasoningFeedback.wrongRefs.length === 0 &&
+      parsed.data.passed
+    : parsed.data.passed;
+  const targetAtoms = [
+    ...new Set([
+      ...parsed.data.targetAtoms,
+      ...(reasoningFeedback?.learnerMemorySignal.atomIds ?? []),
+    ]),
+  ];
+
   const result = await saveGeometryAttempt({
     userId: session.user.id,
     ...parsed.data,
+    targetAtoms,
+    correctCount,
+    passed,
+    metadata: {
+      ...parsed.data.metadata,
+      reasoningFeedback,
+      stepAlignmentEvidence: reasoningFeedback?.stepAlignmentEvidence ?? [],
+      learnerMemorySignal: reasoningFeedback?.learnerMemorySignal ?? null,
+    },
   });
   return NextResponse.json({ ok: true, result });
 }
