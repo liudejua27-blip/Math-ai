@@ -75,13 +75,21 @@ export default function RootLayout({
           disableTransitionOnChange
           enableSystem
         >
-          <SessionProvider
-            basePath={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/auth`}
-          >
+          {canUseAuthProvider() ? (
+            <SessionProvider
+              basePath={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/auth`}
+            >
+              <TooltipProvider>{children}</TooltipProvider>
+            </SessionProvider>
+          ) : (
             <TooltipProvider>{children}</TooltipProvider>
-          </SessionProvider>
+          )}
         </ThemeProvider>
       </body>
     </html>
   );
+}
+
+function canUseAuthProvider() {
+  return Boolean(process.env.AUTH_SECRET?.trim());
 }

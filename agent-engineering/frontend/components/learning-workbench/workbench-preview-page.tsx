@@ -1,289 +1,174 @@
 "use client";
 
-import { useState } from "react";
-import type { MathDiagnosisResult } from "@/lib/ai/math-diagnosis-types";
-import { AgentInspector } from "./agent-inspector";
-import { CorrectionCardPanel } from "./math-diagnosis-panels";
-import { LearningWorkbenchSidebar } from "./workbench-sidebar";
+import type React from "react";
+import {
+  BrainIcon,
+  FlaskConicalIcon,
+  GraduationCapIcon,
+  HistoryIcon,
+  PanelRightOpenIcon,
+  PaperclipIcon,
+  RouteIcon,
+  SendIcon,
+  SparklesIcon,
+  TargetIcon,
+} from "lucide-react";
 
 export function WorkbenchPreviewPage() {
-  const [collapsed, setCollapsed] = useState(false);
-
   return (
-    <main className="flex h-dvh w-full overflow-hidden bg-background">
-      <LearningWorkbenchSidebar
-        latestDiagnosis={sampleDiagnosis}
-        recentDiagnoses={[]}
-        workbenchSummary={null}
-      />
-      <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center justify-between border-border/60 border-b px-4">
+    <main className="flex h-dvh w-full overflow-hidden bg-[var(--ms-bg-app)] text-foreground">
+      <aside className="hidden w-[276px] shrink-0 flex-col border-r border-border/55 bg-sidebar/80 px-3 py-4 backdrop-blur-xl lg:flex">
+        <div className="flex items-center gap-3 px-2">
+          <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <GraduationCapIcon className="size-5" />
+          </div>
           <div>
-            <div className="font-semibold text-sm">
-              Math-SEARAG Learning Agent
+            <div className="font-semibold text-sm">数学思维导师</div>
+            <div className="text-muted-foreground text-xs">agent-first 私教界面</div>
+          </div>
+        </div>
+
+        <button
+          className="mt-5 flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 font-medium text-primary-foreground text-sm shadow-sm"
+          type="button"
+        >
+          <SparklesIcon className="size-4" />
+          新建诊断
+        </button>
+
+        <nav className="mt-5 grid gap-1.5">
+          <RailItem active icon={<BrainIcon className="size-4" />} label="AI 私教线程" />
+          <RailItem icon={<TargetIcon className="size-4" />} label="错因画像" />
+          <RailItem icon={<RouteIcon className="size-4" />} label="变式训练" />
+          <RailItem icon={<FlaskConicalIcon className="size-4" />} label="Geometry Lab" />
+          <RailItem icon={<HistoryIcon className="size-4" />} label="诊断历史" />
+        </nav>
+
+        <div className="mt-5 rounded-2xl border border-border/55 bg-card/70 p-3 shadow-[var(--shadow-card)]">
+          <div className="font-medium text-sm">当前学习记忆</div>
+          <div className="mt-3 grid gap-2">
+            <MemoryRow label="A18 参数分类缺失" value="需要复盘" />
+            <MemoryRow label="A07 定义域意识" value="正在修复" />
+            <MemoryRow label="下一题推荐" value="表层同因题" />
+          </div>
+        </div>
+      </aside>
+
+      <section className="flex min-w-0 flex-1 flex-col px-3 py-3 md:px-5 md:py-4">
+        <header className="flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-border/55 bg-card/80 px-4 py-3 shadow-[var(--shadow-card)] backdrop-blur-xl">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="size-2.5 rounded-full bg-emerald-500" />
+              <h1 className="truncate font-semibold text-base">AI 数学思维导师</h1>
             </div>
-            <div className="text-muted-foreground text-xs">
-              预览：DeepSeek GUI 式数学学习工作台
+            <div className="mt-1 truncate text-muted-foreground text-xs">
+              预览模式 · 学生只需要发题目、步骤或草稿图片
             </div>
           </div>
-          <div className="hidden items-center gap-2 text-xs md:flex">
-            <span className="rounded-md bg-blue-500/10 px-2 py-1 text-blue-700 dark:text-blue-300">
-              deepseek/deepseek-v4-flash
-            </span>
-            <span className="rounded-md bg-emerald-500/10 px-2 py-1 text-emerald-700 dark:text-emerald-300">
-              TypeScript workflow
-            </span>
-          </div>
+          <button
+            className="inline-flex items-center gap-2 rounded-xl border border-border/55 bg-background px-3 py-2 font-medium text-xs"
+            type="button"
+          >
+            <PanelRightOpenIcon className="size-4" />
+            诊断过程
+          </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
-          <div className="mx-auto grid max-w-4xl gap-4">
-            <div className="rounded-lg border border-border/70 bg-card p-4">
-              <div className="font-medium text-sm">题目</div>
-              <p className="mt-2 text-sm leading-6">
-                已知函数 f(x)=x^3-3ax 在区间 [-2,2] 上有最大值，求参数 a
-                的讨论范围。
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-border/70 bg-card p-4">
-              <div className="font-medium text-sm">学生步骤</div>
-              <div className="mt-2 grid gap-2 text-sm leading-6">
-                <div className="rounded-md bg-muted/50 px-3 py-2">
-                  S1：f'(x)=3x^2-3a，所以令 x^2=a。
+        <div className="relative mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/55 bg-background shadow-[var(--shadow-float)]">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-8">
+            <div className="mx-auto flex max-w-3xl flex-col gap-5">
+              <div className="text-center">
+                <div className="font-semibold text-2xl tracking-tight">
+                  你的 AI 高中数学思维导师
                 </div>
-                <div className="rounded-md bg-red-50 px-3 py-2 text-red-800 dark:bg-red-950/30 dark:text-red-100">
-                  S2：所以 a 一定大于 0，答案就是 a&gt;0。
+                <div className="mx-auto mt-3 max-w-xl text-muted-foreground text-sm leading-6">
+                  直接发题目、草稿图片或自己的解题步骤。Agent 会先确认你的思路，再定位第一错步，而不是一上来灌答案。
                 </div>
               </div>
-            </div>
 
-            <div className="rounded-lg border border-border/70 bg-card p-4">
-              <div className="font-medium text-sm">苏格拉底追问</div>
-              <div className="mt-3 rounded-md border border-amber-200/70 bg-amber-50 px-3 py-2 text-amber-900 text-sm leading-6 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100">
-                你先停在 S2：题目含参数时，为什么只说 a&gt;0 还不够？临界点是否一定落在 [-2,2]？
+              <div className="rounded-2xl border border-border/55 bg-card/75 p-4 shadow-[var(--shadow-card)]">
+                <div className="text-muted-foreground text-xs">学生输入</div>
+                <div className="mt-2 text-sm leading-6">
+                  已知函数 f(x)=x^3-3ax 在 [-2,2] 上求最值。我写到 S2：所以 a 一定大于 0，答案就是 a&gt;0。
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 shadow-[var(--shadow-card)]">
+                <div className="text-primary text-xs">AI 私教</div>
+                <div className="mt-2 text-sm leading-6">
+                  我先不直接给完整答案。第一处需要停下来的地方是 S2：你把“存在临界点”直接当成“最终参数范围”。先回答一个小问题：临界点一定落在 [-2,2] 里面吗？
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <PreviewCard title="第一错步" value="S2 跳步结论" />
+                <PreviewCard title="错因原子" value="A18 参数分类缺失" />
+                <PreviewCard title="下一题" value="同因表层变式" />
               </div>
             </div>
+          </div>
 
-            <CorrectionCardPanel card={sampleDiagnosis.correctionCard} />
+          <div className="mx-auto w-full max-w-3xl px-4 pb-5">
+            <div className="rounded-2xl border border-border/55 bg-card/85 p-3 shadow-[var(--shadow-composer)] backdrop-blur">
+              <div className="min-h-20 text-muted-foreground text-sm">
+                输入题目、粘贴步骤，或上传草稿图片...
+              </div>
+              <div className="mt-3 flex items-center justify-between">
+                <button className="rounded-xl border border-border/55 p-2" type="button">
+                  <PaperclipIcon className="size-4" />
+                </button>
+                <button
+                  className="rounded-xl bg-primary p-2 text-primary-foreground"
+                  type="button"
+                >
+                  <SendIcon className="size-4" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
-      <AgentInspector
-        collapsed={collapsed}
-        onToggle={() => setCollapsed((value) => !value)}
-        result={sampleDiagnosis}
-      />
     </main>
   );
 }
 
-const sampleDiagnosis: MathDiagnosisResult = {
-  jobId: "preview-d03",
-  firstWrongStep: "S2",
-  firstWrongReason: "学生直接给出 a>0，缺少参数分类、临界点范围和端点比较。",
-  confidence: 0.88,
-  needHumanReview: false,
-  misconceptionAtoms: [
-    {
-      id: "A18",
-      label: "参数分类缺失",
-      level: "topic",
-      description: "含参题需要按临界点是否进入区间分类讨论。",
-    },
-    {
-      id: "A11",
-      label: "跳步结论",
-      level: "strategy",
-      description: "从局部条件直接跳到最终范围。",
-    },
-    {
-      id: "A07",
-      label: "定义域/区间意识",
-      level: "foundation",
-      description: "没有把结论绑定到题设区间。",
-    },
-  ],
-  evidenceNodes: [
-    {
-      id: "E1",
-      type: "student_step",
-      text: "S2：所以 a 一定大于 0，答案就是 a>0。",
-      confidence: 0.94,
-    },
-  ],
-  strictChecks: [
-    {
-      id: "gate-parameter-classification",
-      label: "参数分类",
-      status: "fail",
-      reason: "题目含参，但学生把参数当成单一定值处理。",
-    },
-    {
-      id: "gate-conclusion-scope",
-      label: "结论范围",
-      status: "fail",
-      reason: "最终结论没有绑定临界点进入区间的条件。",
-    },
-  ],
-  socraticQuestions: [
-    "S2 中的 a>0 是否已经保证临界点落在 [-2,2]？",
-    "如果 a=9，x^2=a 的临界点还在区间内吗？",
-    "端点值和驻点值分别应该在什么条件下比较？",
-  ],
-  policyDecision: {
-    mode: "first_wrong_step",
-    allowedContent: {
-      canShowFinalAnswer: false,
-      canShowFullSolution: false,
-      canShowFirstWrongStep: true,
-      canShowHint: true,
-      canAskQuestion: true,
-    },
-    nextPrompts: [
-      "你先不要看完整答案。请先判断：S2 为什么不能直接成立？",
-    ],
-    reason: "已有学生步骤，优先定位第一断点并追问。",
-  },
-  verifierTraces: [
-    {
-      id: "trace-parameter-classification",
-      claim: "含参题需要讨论临界点是否进入区间",
-      claimType: "classification",
-      verifier: "typescript_strict_gate",
-      status: "fail",
-      evidenceIds: ["E1"],
-      failureReason: "未发现分类讨论、范围讨论或端点比较。",
-      confidence: 0.9,
-    },
-    {
-      id: "trace-python",
-      claim: "Python verifier 当前未参与预览",
-      claimType: "proof_step",
-      verifier: "not_checked",
-      status: "not_checked",
-      evidenceIds: ["E1"],
-      confidence: 0.5,
-    },
-  ],
-  learnerMemoryDelta: {
-    studentId: "preview-student",
-    atomUpdates: [
-      {
-        atomId: "A18",
-        label: "参数分类缺失",
-        exposureCount: 3,
-        errorCount: 2,
-        recurrenceRate30d: 0.67,
-        recurrenceRateLast10: 0.6,
-        transferRate: 0.25,
-        selfRepairRate: 0.2,
-        lastWrongProblemIds: ["preview-d03"],
-        lastSuccessfulVariantIds: [],
-        mastery: "weak",
-      },
-    ],
-    topicUpdate: {
-      topicId: "derivative",
-      problemCount: 8,
-      correctCount: 4,
-      commonAtoms: ["A18", "A11"],
-      currentLevel: "standard",
-    },
-    strategyUpdate: {
-      tendsToSkipDomainCheck: true,
-      tendsToAvoidClassification: true,
-      tendsToUseAnswerFirstReasoning: true,
-      tendsToIgnoreEndpointComparison: false,
-      tendsToMisreadGeometricConstraints: false,
-      tendsToUseFormulaWithoutCondition: true,
-      notes: ["预览样例：含参题跳步到答案。"],
-    },
-    summary: {
-      updatedAtoms: ["A18"],
-      weakAtoms: ["A18"],
-      improvingAtoms: [],
-      recommendedPlan: ["先完成 A18 的 1 级和 3 级变式。"],
-    },
-  },
-  remediationPlan: {
-    sourceAtoms: ["A18", "A11"],
-    nextStep: "practice_variants",
-    items: [
-      {
-        atomId: "A18",
-        atomLabel: "参数分类缺失",
-        level: 1,
-        title: "表层变式：临界点范围",
-        prompt: "换一个三次函数，先判断临界点是否进入区间。",
-        purpose: "让学生先形成分类边界意识。",
-      },
-      {
-        atomId: "A18",
-        atomLabel: "参数分类缺失",
-        level: 3,
-        title: "迁移变式：参数与端点比较",
-        prompt: "在不同区间上比较端点值和驻点值。",
-        purpose: "训练把最终结论绑定到参数范围。",
-      },
-    ],
-    masteryImpact: "medium",
-  },
-  thinkingGraph: {
-    type: "math_thinking_graph",
-    title: "预览思维图谱",
-    nodes: [
-      { id: "P", label: "题目", kind: "problem", status: "neutral" },
-      { id: "S2", label: "S2 跳步结论", kind: "step", status: "fail" },
-      { id: "A18", label: "A18 参数分类", kind: "atom", status: "fail" },
-    ],
-    edges: [{ from: "S2", to: "A18", kind: "causes", label: "触发" }],
-  },
-  correctionCard: {
-    type: "html_card",
-    title: "订正卡：含参题先找分类边界",
-    blocks: [
-      {
-        kind: "problem",
-        text: "含参函数最值题不能只从 f'(x)=0 得到 a>0，还要检查临界点是否在题设区间内。",
-      },
-      {
-        kind: "wrong_step",
-        stepId: "S2",
-        text: "S2 的问题是把“存在临界点”直接当成了“最终答案”。",
-        evidenceIds: ["E1"],
-      },
-      {
-        kind: "socratic_question",
-        text: "如果临界点不在 [-2,2]，最大值还会由驻点决定吗？",
-      },
-      {
-        kind: "correction_step",
-        text: "先写出分类边界，再分别比较端点和驻点。",
-        latex: "x^2=a, x\\in[-2,2] \\Rightarrow 0\\le a\\le 4",
-        evidenceIds: ["E1"],
-      },
-      {
-        kind: "variant",
-        title: "同因变式",
-        text: "把区间换成 [-1,3]，重新判断临界点进入区间的参数范围。",
-      },
-    ],
-  },
-  recommendedGeometryLabs: [
-    {
-      levelId: "G2-2",
-      title: "三棱锥二面角",
-      reason: "如果出现 A34，可进入立体几何转换训练。",
-      targetAtoms: ["A34"],
-      sceneSpecId: "scene_g2_2",
-    },
-  ],
-  variants: [
-    {
-      title: "参数分类变式",
-      tag: "A18",
-      text: "把区间换成 [-1,3]，重新判断临界点进入区间的参数范围。",
-    },
-  ],
-};
+function RailItem({
+  active,
+  icon,
+  label,
+}: {
+  active?: boolean;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <div
+      className={
+        active
+          ? "flex items-center gap-2 rounded-xl bg-sidebar-accent px-3 py-2 text-sidebar-accent-foreground text-sm"
+          : "flex items-center gap-2 rounded-xl px-3 py-2 text-sidebar-foreground/75 text-sm"
+      }
+    >
+      {icon}
+      {label}
+    </div>
+  );
+}
+
+function MemoryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/45 bg-background/60 px-3 py-2">
+      <div className="truncate font-medium text-xs">{label}</div>
+      <div className="mt-1 text-muted-foreground text-[11px]">{value}</div>
+    </div>
+  );
+}
+
+function PreviewCard({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border/55 bg-card/75 p-4">
+      <div className="text-muted-foreground text-xs">{title}</div>
+      <div className="mt-2 font-medium text-sm">{value}</div>
+    </div>
+  );
+}

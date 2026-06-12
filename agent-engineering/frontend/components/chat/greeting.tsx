@@ -9,15 +9,15 @@ export const Greeting = () => {
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.35, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
-        Math-SEARAG Learning Agent
+        你的 AI 高中数学思维导师
       </motion.div>
       <motion.div
         animate={{ opacity: 1, y: 0 }}
-        className="mt-3 text-center text-muted-foreground/80 text-sm"
+        className="mt-3 max-w-xl text-center text-muted-foreground/80 text-sm leading-6"
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.5, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
-        先写出你的解题步骤。我会定位第一断点，用追问、验证、订正卡和迁移训练帮你真正改正。
+        直接发题目、草稿图片或自己的解题步骤。我会先确认你的思路，再定位第一错步，用追问、验证链、订正卡和同因变式帮你真正改正。
       </motion.div>
     </div>
   );

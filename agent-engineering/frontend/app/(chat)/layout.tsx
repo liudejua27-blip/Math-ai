@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { AppSidebar } from "@/components/chat/app-sidebar";
 import { DataStreamProvider } from "@/components/chat/data-stream-provider";
 import { ChatShell } from "@/components/chat/shell";
+import { WorkbenchPreviewPage } from "@/components/learning-workbench/workbench-preview-page";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ActiveChatProvider } from "@/hooks/use-active-chat";
 import { getStudentWorkbenchSummary } from "@/lib/db/queries";
@@ -27,6 +28,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 }
 
 async function SidebarShell({ children }: { children: React.ReactNode }) {
+  if (!canUseFormalChat()) {
+    return <WorkbenchPreviewPage />;
+  }
+
   const [session, cookieStore] = await Promise.all([auth(), cookies()]);
   const isCollapsed = cookieStore.get("sidebar_state")?.value !== "true";
   const workbenchSummary = session?.user?.id
@@ -54,4 +59,8 @@ async function SidebarShell({ children }: { children: React.ReactNode }) {
       </SidebarInset>
     </SidebarProvider>
   );
+}
+
+function canUseFormalChat() {
+  return Boolean(process.env.AUTH_SECRET?.trim() && process.env.POSTGRES_URL?.trim());
 }

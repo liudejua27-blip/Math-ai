@@ -13,8 +13,8 @@ const STORAGE_KEY = "math-searag.workbench.layout.v1";
 const DEFAULT_STATE: WorkbenchLayoutState = {
   leftWidth: 288,
   rightWidth: 380,
-  inspectorCollapsed: false,
-  activeTaskLabel: "等待诊断",
+  inspectorCollapsed: true,
+  activeTaskLabel: "等待学生输入题目和步骤",
 };
 
 export function useWorkbenchLayoutState() {

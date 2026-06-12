@@ -18,20 +18,20 @@ async function main() {
     await assertPage(browser, `${baseUrl}/workbench-preview`, {
       name: "workbench-preview-desktop",
       viewport: { width: 1440, height: 900 },
-      requiredText: ["Math-SEARAG Workbench", "Agent Inspector"],
+      requiredText: ["AI 数学思维导师", "新建诊断", "诊断过程"],
       maxHorizontalOverflow: 0,
     });
     await assertPage(browser, `${baseUrl}/workbench-preview`, {
       name: "workbench-preview-mobile",
       viewport: { width: 390, height: 844 },
-      requiredText: ["Math-SEARAG Learning Agent"],
+      requiredText: ["AI 数学思维导师"],
       maxHorizontalOverflow: 0,
     });
     if (process.env.POSTGRES_URL) {
       await assertPage(browser, `${baseUrl}/`, {
         name: "formal-chat-empty-profile",
         viewport: { width: 1440, height: 900 },
-        requiredText: ["Math-SEARAG Workbench"],
+        requiredText: ["AI 数学思维导师"],
         maxHorizontalOverflow: 0,
       });
     } else {

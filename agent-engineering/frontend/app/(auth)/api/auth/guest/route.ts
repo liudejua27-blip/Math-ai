@@ -4,6 +4,10 @@ import { signIn } from "@/app/(auth)/auth";
 import { isDevelopmentEnvironment } from "@/lib/constants";
 
 export async function GET(request: Request) {
+  if (!process.env.AUTH_SECRET?.trim()) {
+    return NextResponse.redirect(new URL("/workbench-preview", request.url));
+  }
+
   const { searchParams } = new URL(request.url);
   const rawRedirect = searchParams.get("redirectUrl") || "/";
   const redirectUrl =

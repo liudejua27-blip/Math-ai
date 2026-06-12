@@ -1,7 +1,20 @@
 "use client";
 
+import type React from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  BookOpenCheckIcon,
+  BrainIcon,
+  ChevronRightIcon,
+  FlaskConicalIcon,
+  GraduationCapIcon,
+  HistoryIcon,
+  PanelRightOpenIcon,
+  RouteIcon,
+  SparklesIcon,
+  TargetIcon,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +33,6 @@ import {
 } from "@/hooks/use-artifact";
 import { AgentInspector } from "@/components/learning-workbench/agent-inspector";
 import { AgentRunRibbon } from "@/components/learning-workbench/agent-run-ribbon";
-import { LearningWorkbenchSidebar } from "@/components/learning-workbench/workbench-sidebar";
 import type { MathDiagnosisToolResult } from "@/lib/ai/math-diagnosis-types";
 import type { MathDiagnosisRequest } from "@/lib/ai/math-diagnosis-types";
 import type {
@@ -32,7 +44,6 @@ import type { WorkbenchEvent } from "@/lib/ai/workbench-events";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Artifact } from "./artifact";
-import { ChatHeader } from "./chat-header";
 import { DataStreamHandler } from "./data-stream-handler";
 import { submitEditedMessage } from "./message-editor";
 import { Messages } from "./messages";
@@ -303,50 +314,61 @@ export function ChatShell({
 
   return (
     <>
-      <div className="ms-workbench-shell flex h-dvh w-full flex-row overflow-hidden">
-        <LearningWorkbenchSidebar
-          activeTaskLabel={workbenchLayout.activeTaskLabel}
+      <div className="ms-agent-app flex h-dvh w-full overflow-hidden bg-[var(--ms-bg-app)] text-foreground">
+        <AgentStudyRail
           latestDiagnosis={latestDiagnosis}
-          recentDiagnoses={initialWorkbenchSummary?.recentDiagnoses ?? []}
-          width={workbenchLayout.leftWidth}
-          workbenchSummary={initialWorkbenchSummary}
-        />
-        <WorkbenchResizeHandle
-          label="调整左侧画像栏宽度"
-          onPointerDown={startSidebarResize}
+          onNewChat={() => {
+            window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/`;
+          }}
+          summary={initialWorkbenchSummary}
         />
 
         <div className="flex min-w-0 flex-1 flex-row overflow-hidden">
-          <div
+          <main
             className={cn(
-              "ms-canvas flex min-w-0 flex-col transition-[width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
-              isArtifactVisible ? "w-[40%]" : "w-full"
+              "flex min-w-0 flex-1 flex-col px-3 py-3 md:px-5 md:py-4",
+              isArtifactVisible && "xl:max-w-[58%]"
             )}
           >
-            <ChatHeader
+            <AgentThreadHeader
+              activeTaskLabel={workbenchLayout.activeTaskLabel}
               chatId={chatId}
-              isReadonly={isReadonly}
-              selectedVisibilityType={visibilityType}
+              hasDiagnosis={Boolean(latestDiagnosis)}
+              isInspectorOpen={!workbenchLayout.inspectorCollapsed}
+              onOpenInspector={() => {
+                setIsMobileInspectorOpen(true);
+                setWorkbenchLayout((current) => ({
+                  ...current,
+                  inspectorCollapsed: false,
+                }));
+              }}
+              runtimeStatus={getVisibleRuntimeStatus(
+                liveRuntimeStatus,
+                status,
+                latestDiagnosis
+              )}
             />
 
-            <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-tl-[12px] md:border-t md:border-l md:border-border/40">
-              <AgentRunRibbon
-                liveEvents={liveEvents}
-                onControlAction={handleInspectorControl}
-                onOpenInspector={() => {
-                  setIsMobileInspectorOpen(true);
-                  setWorkbenchLayout((current) => ({
-                    ...current,
-                    inspectorCollapsed: false,
-                  }));
-                }}
-                result={latestDiagnosis}
-                runtimeStatus={getVisibleRuntimeStatus(
-                  liveRuntimeStatus,
-                  status,
-                  latestDiagnosis
-                )}
-              />
+            <section className="relative mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/55 bg-background shadow-[var(--shadow-float)]">
+              {(liveEvents.length > 0 || latestDiagnosis || status !== "ready") && (
+                <AgentRunRibbon
+                  liveEvents={liveEvents}
+                  onControlAction={handleInspectorControl}
+                  onOpenInspector={() => {
+                    setIsMobileInspectorOpen(true);
+                    setWorkbenchLayout((current) => ({
+                      ...current,
+                      inspectorCollapsed: false,
+                    }));
+                  }}
+                  result={latestDiagnosis}
+                  runtimeStatus={getVisibleRuntimeStatus(
+                    liveRuntimeStatus,
+                    status,
+                    latestDiagnosis
+                  )}
+                />
+              )}
               <Messages
                 addToolApprovalResponse={addToolApprovalResponse}
                 chatId={chatId}
@@ -369,13 +391,13 @@ export function ChatShell({
                 votes={votes}
               />
 
-              <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
+              <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 bg-background/95 px-3 pb-3 backdrop-blur md:px-5 md:pb-5">
                 <button
-                  className="absolute right-3 bottom-[calc(100%+8px)] rounded-md border border-border/60 bg-card px-3 py-1.5 font-medium text-xs shadow-sm xl:hidden"
+                  className="absolute right-4 bottom-[calc(100%+10px)] rounded-full border border-border/60 bg-card/95 px-3 py-1.5 font-medium text-xs shadow-sm backdrop-blur xl:hidden"
                   onClick={() => setIsMobileInspectorOpen(true)}
                   type="button"
                 >
-                  Agent Inspector
+                  查看诊断过程
                 </button>
                 {!isReadonly && (
                   <MultimodalInput
@@ -415,8 +437,8 @@ export function ChatShell({
                   />
                 )}
               </div>
-            </div>
-          </div>
+            </section>
+          </main>
 
           <Artifact
             addToolApprovalResponse={addToolApprovalResponse}
@@ -440,30 +462,32 @@ export function ChatShell({
 
         {!workbenchLayout.inspectorCollapsed && (
           <WorkbenchResizeHandle
-            label="调整右侧 Inspector 宽度"
+            label="调整右侧诊断面板宽度"
             onPointerDown={startInspectorResize}
           />
         )}
-        <AgentInspector
-          collapsed={workbenchLayout.inspectorCollapsed}
-          exportable
-          liveEvents={liveEvents}
-          mobileMode="sidebar"
-          onControlAction={handleInspectorControl}
-          onToggle={() =>
-            setWorkbenchLayout((current) => ({
-              ...current,
-              inspectorCollapsed: !current.inspectorCollapsed,
-            }))
-          }
-          result={latestDiagnosis}
-          runtimeStatus={getVisibleRuntimeStatus(
-            liveRuntimeStatus,
-            status,
-            latestDiagnosis
-          )}
-          width={workbenchLayout.rightWidth}
-        />
+        {!workbenchLayout.inspectorCollapsed && (
+          <AgentInspector
+            collapsed={false}
+            exportable
+            liveEvents={liveEvents}
+            mobileMode="sidebar"
+            onControlAction={handleInspectorControl}
+            onToggle={() =>
+              setWorkbenchLayout((current) => ({
+                ...current,
+                inspectorCollapsed: true,
+              }))
+            }
+            result={latestDiagnosis}
+            runtimeStatus={getVisibleRuntimeStatus(
+              liveRuntimeStatus,
+              status,
+              latestDiagnosis
+            )}
+            width={workbenchLayout.rightWidth}
+          />
+        )}
         {isMobileInspectorOpen && (
           <AgentInspector
             collapsed={false}
@@ -514,6 +538,187 @@ export function ChatShell({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function AgentStudyRail({
+  latestDiagnosis,
+  onNewChat,
+  summary,
+}: {
+  latestDiagnosis: MathDiagnosisToolResult | null;
+  onNewChat: () => void;
+  summary: StudentWorkbenchSummary | null;
+}) {
+  const topAtoms = summary?.topAtoms.slice(0, 3) ?? [];
+  const recommendation =
+    latestDiagnosis && !("error" in latestDiagnosis)
+      ? latestDiagnosis.learnerMemoryGuidance?.recommendation
+      : summary?.learnerRecommendation;
+
+  return (
+    <aside className="hidden w-[276px] shrink-0 flex-col border-r border-border/55 bg-sidebar/80 px-3 py-4 backdrop-blur-xl lg:flex">
+      <div className="flex items-center gap-3 px-2">
+        <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+          <GraduationCapIcon className="size-5" />
+        </div>
+        <div>
+          <div className="font-semibold text-sm">数学思维导师</div>
+          <div className="text-muted-foreground text-xs">agent-first 私教界面</div>
+        </div>
+      </div>
+
+      <button
+        className="mt-5 flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 font-medium text-primary-foreground text-sm shadow-sm transition hover:opacity-95"
+        onClick={onNewChat}
+        type="button"
+      >
+        <SparklesIcon className="size-4" />
+        新建诊断
+      </button>
+
+      <nav className="mt-5 grid gap-1.5">
+        <NavItem active icon={<BrainIcon className="size-4" />} label="AI 私教线程" />
+        <NavItem icon={<TargetIcon className="size-4" />} label="错因画像" />
+        <NavItem icon={<RouteIcon className="size-4" />} label="变式训练" />
+        <NavItem icon={<FlaskConicalIcon className="size-4" />} label="Geometry Lab" />
+        <NavItem icon={<HistoryIcon className="size-4" />} label="诊断历史" />
+      </nav>
+
+      <div className="mt-5 rounded-2xl border border-border/55 bg-card/70 p-3 shadow-[var(--shadow-card)]">
+        <div className="flex items-center gap-2 font-medium text-sm">
+          <BookOpenCheckIcon className="size-4 text-primary" />
+          今天怎么用
+        </div>
+        <ol className="mt-3 grid gap-2 text-muted-foreground text-xs leading-5">
+          <li>1. 输入题目，最好贴上自己的步骤。</li>
+          <li>2. 没有步骤时，agent 会先引导你写思路。</li>
+          <li>3. 有步骤后，agent 找第一错步并给订正卡。</li>
+        </ol>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        <div className="px-1 font-medium text-muted-foreground text-xs">
+          学习记忆
+        </div>
+        {recommendation ? (
+          <MiniMemoryCard
+            title={recommendation.nextProblem.title}
+            value={recommendation.heartbeat.enabled ? "需要复盘" : "继续迁移"}
+          />
+        ) : (
+          <MiniMemoryCard title="完成一次诊断后生成推荐" value="待开始" />
+        )}
+        {topAtoms.map((atom) => (
+          <MiniMemoryCard
+            key={atom.id}
+            title={`${atom.atomId} ${atom.atomLabel}`}
+            value={atom.masteryLabel}
+          />
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function AgentThreadHeader({
+  activeTaskLabel,
+  chatId,
+  hasDiagnosis,
+  isInspectorOpen,
+  onOpenInspector,
+  runtimeStatus,
+}: {
+  activeTaskLabel: string;
+  chatId: string;
+  hasDiagnosis: boolean;
+  isInspectorOpen: boolean;
+  onOpenInspector: () => void;
+  runtimeStatus: MathAgentRunStatus;
+}) {
+  return (
+    <header className="flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-border/55 bg-card/80 px-4 py-3 shadow-[var(--shadow-card)] backdrop-blur-xl">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <StatusDot status={runtimeStatus} />
+          <h1 className="truncate font-semibold text-base">AI 数学思维导师</h1>
+        </div>
+        <div className="mt-1 truncate text-muted-foreground text-xs">
+          {formatRuntimeStatus(runtimeStatus)} · {activeTaskLabel} · {chatId.slice(0, 8)}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <a
+          className="hidden rounded-xl border border-border/55 bg-background px-3 py-2 font-medium text-xs transition hover:bg-muted md:inline-flex"
+          href="/geometry-lab"
+        >
+          Geometry Lab
+        </a>
+        <button
+          className={cn(
+            "inline-flex items-center gap-2 rounded-xl border px-3 py-2 font-medium text-xs transition",
+            isInspectorOpen
+              ? "border-primary/40 bg-primary/10 text-primary"
+              : "border-border/55 bg-background hover:bg-muted"
+          )}
+          onClick={onOpenInspector}
+          type="button"
+        >
+          <PanelRightOpenIcon className="size-4" />
+          {hasDiagnosis ? "诊断过程" : "后台面板"}
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function NavItem({
+  active,
+  icon,
+  label,
+}: {
+  active?: boolean;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between rounded-xl px-3 py-2 text-sm transition",
+        active
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+      )}
+    >
+      <div className="flex items-center gap-2">
+        {icon}
+        <span>{label}</span>
+      </div>
+      {active && <ChevronRightIcon className="size-4" />}
+    </div>
+  );
+}
+
+function MiniMemoryCard({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border/45 bg-background/60 px-3 py-2">
+      <div className="truncate font-medium text-xs">{title}</div>
+      <div className="mt-1 text-muted-foreground text-[11px]">{value}</div>
+    </div>
+  );
+}
+
+function StatusDot({ status }: { status: MathAgentRunStatus }) {
+  return (
+    <span
+      className={cn(
+        "size-2.5 rounded-full",
+        status === "running" && "bg-amber-500",
+        status === "failed" && "bg-red-500",
+        status === "completed" && "bg-emerald-500",
+        (status === "idle" || status === "interrupted") && "bg-muted-foreground/45"
+      )}
+    />
   );
 }
 
@@ -603,6 +808,18 @@ function getVisibleRuntimeStatus(
   }
 
   return mapChatStatusToRuntimeStatus(chatStatus, result);
+}
+
+function formatRuntimeStatus(status: MathAgentRunStatus) {
+  const labels: Record<MathAgentRunStatus, string> = {
+    idle: "等待输入",
+    running: "诊断中",
+    interrupted: "已暂停",
+    completed: "已完成",
+    failed: "需检查",
+    waiting_approval: "等待确认",
+  };
+  return labels[status] ?? "等待输入";
 }
 
 function buildInspectorControlMessage(

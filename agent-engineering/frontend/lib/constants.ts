@@ -13,8 +13,8 @@ export const guestRegex = /^guest-\d+$/;
 export const DUMMY_PASSWORD = generateDummyPassword();
 
 export const suggestions = [
-  "我有题目和步骤，帮我找第一断点",
-  "我没有步骤，先引导我写第一步",
-  "把这次错因更新到学习画像",
-  "基于同一个错因生成迁移训练",
+  "我有题目和步骤，帮我找第一错步",
+  "我只有题目，请先引导我写解题思路",
+  "我上传草稿图片，请先识别并让我确认",
+  "根据同一个错因，给我一组变式训练",
 ];
