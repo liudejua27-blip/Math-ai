@@ -18,20 +18,25 @@ async function main() {
     await assertPage(browser, `${baseUrl}/workbench-preview`, {
       name: "workbench-preview-desktop",
       viewport: { width: 1440, height: 900 },
-      requiredText: ["AI 数学思维导师", "新建诊断", "诊断过程"],
+      requiredText: [
+        "AI 数学思维导师",
+        "Math-SEARAG",
+        "新建诊断",
+        "今天要诊断哪道高中数学题？",
+      ],
       maxHorizontalOverflow: 0,
     });
     await assertPage(browser, `${baseUrl}/workbench-preview`, {
       name: "workbench-preview-mobile",
       viewport: { width: 390, height: 844 },
-      requiredText: ["AI 数学思维导师"],
+      requiredText: ["AI 数学思维导师", "今天要诊断哪道高中数学题？"],
       maxHorizontalOverflow: 0,
     });
     if (process.env.POSTGRES_URL) {
       await assertPage(browser, `${baseUrl}/`, {
         name: "formal-chat-empty-profile",
         viewport: { width: 1440, height: 900 },
-        requiredText: ["AI 数学思维导师"],
+        requiredText: ["AI 数学思维导师", "Math-SEARAG"],
         maxHorizontalOverflow: 0,
       });
     } else {
