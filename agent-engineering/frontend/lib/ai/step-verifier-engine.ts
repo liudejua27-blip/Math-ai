@@ -6,6 +6,7 @@ import type {
   StepVerificationSignal,
   StepWrongCandidate,
 } from "./math-diagnosis-types";
+import { calibrateWithProcessSupervision } from "./process-supervision-calibration";
 
 type StepVerifierInput = {
   request: Pick<MathDiagnosisRequest, "problemText" | "studentSteps">;
@@ -17,13 +18,20 @@ type StepVerifierInput = {
 };
 
 export function verifyStudentSteps(input: StepVerifierInput): StepVerifierDecision {
-  const candidates = buildStepCandidates(input)
+  const baselineCandidates = buildStepCandidates(input)
     .sort((first, second) => second.score - first.score)
     .slice(0, 5)
     .map(calibrateCandidate);
+  const processSupervision = calibrateWithProcessSupervision({
+    candidates: baselineCandidates,
+  });
+  const candidates = processSupervision.candidates;
   const selected = candidates[0] ?? null;
   const reliability = inferReliability(selected, candidates);
-  const notes = buildDecisionNotes(input, selected, candidates);
+  const notes = [
+    ...buildDecisionNotes(input, selected, candidates),
+    ...processSupervision.notes,
+  ];
 
   return {
     source: "typescript_step_verifier",
