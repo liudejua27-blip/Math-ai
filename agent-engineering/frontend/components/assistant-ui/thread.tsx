@@ -21,6 +21,7 @@ import {
   SuggestionPrimitive,
   ThreadPrimitive,
   useAuiState,
+  useComposerRuntime,
 } from "@assistant-ui/react";
 import {
   ArrowDownIcon,
@@ -41,6 +42,34 @@ import type { FC } from "react";
 const isNewChatView = (state: AssistantState) =>
   state.thread.messages.length === 0 &&
   (!state.thread.isLoading || state.threads.isLoading);
+
+const demoPrompts = [
+  {
+    title: "导数定义域",
+    prompt:
+      "请诊断这道题。题目：已知 f(x)=ln(x-1)+x^2，求 f'(x) 并讨论单调性。我的步骤：S1：f'(x)=1/x+2x；S2：令 f'(x)>0 得 x>0；S3：所以函数在 (0,+∞) 单调递增。",
+  },
+  {
+    title: "参数恒成立",
+    prompt:
+      "请诊断这道题。题目：若 ax^2+2x+1>=0 对任意 x∈R 恒成立，求 a 的范围。我的步骤：S1：判别式 Δ=4-4a；S2：令 Δ>=0 得 a<=1；S3：所以 a<=1。",
+  },
+  {
+    title: "二次函数区间最值",
+    prompt:
+      "请诊断这道题。题目：求 y=x^2-4x+3 在区间 [0,3] 上的最小值。我的步骤：S1：对称轴 x=2；S2：最小值在 x=0；S3：所以最小值为 3。",
+  },
+  {
+    title: "正方体线面角",
+    prompt:
+      "请诊断这道立体几何题。题目：正方体 ABCD-A1B1C1D1 中，求 AB1 与平面 ABCD 所成角。我的步骤：S1：AB1 与 AB 的夹角就是线面角；S2：因为 AB 垂直平面 ABCD，所以角为 90°。",
+  },
+  {
+    title: "三棱锥二面角",
+    prompt:
+      "请诊断这道题。题目：三棱锥 P-ABC 中，求二面角 P-AB-C。我的步骤：S1：直接取 PA 与 CA 的夹角；S2：这个角就是二面角。",
+  },
+];
 
 export const Thread: FC<{ chatId: string }> = ({ chatId }) => {
   const isEmpty = useAuiState(isNewChatView);
@@ -85,7 +114,11 @@ export const Thread: FC<{ chatId: string }> = ({ chatId }) => {
           >
             <ThreadScrollToBottom />
             <Composer chatId={chatId} />
-            <AuiIf condition={(state) => isNewChatView(state) && state.composer.isEmpty}>
+            <AuiIf
+              condition={(state) =>
+                isNewChatView(state) && state.composer.isEmpty
+              }
+            >
               <ThreadSuggestions />
             </AuiIf>
           </ThreadPrimitive.ViewportFooter>
@@ -124,10 +157,35 @@ const ThreadWelcome: FC = () => (
       今天想诊断哪一道高中数学题？
     </h1>
     <p className="mt-3 max-w-xl text-muted-foreground text-sm leading-6">
-      输入题目和你的解题步骤，或者上传草稿纸图片。我会先定位第一错步，再用追问、订正卡和同因变式帮你修复思路。
+      输入题目和你的解题步骤，或上传草稿纸图片。我会先定位第一错步，再用追问、订正卡、推荐解法、最快解法和同因变式帮你修复思路。
     </p>
+    <StudentShowcasePrompts />
   </div>
 );
+
+const StudentShowcasePrompts: FC = () => {
+  const composer = useComposerRuntime({ optional: true }) as
+    | { setText?: (text: string) => void }
+    | null;
+
+  return (
+    <div className="mt-5 grid w-full max-w-2xl gap-2 sm:grid-cols-2">
+      {demoPrompts.map((item) => (
+        <button
+          className="rounded-2xl border bg-background px-3 py-2 text-left text-sm transition hover:bg-muted"
+          key={item.title}
+          onClick={() => composer?.setText?.(item.prompt)}
+          type="button"
+        >
+          <span className="font-medium">{item.title}</span>
+          <span className="mt-1 block text-muted-foreground text-xs">
+            点击填入一组可演示步骤
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+};
 
 const ThreadSuggestions: FC = () => (
   <div className="aui-thread-welcome-suggestions flex w-full flex-wrap items-center justify-center gap-2 px-4">
@@ -326,10 +384,7 @@ const AssistantActionBar: FC = () => (
     </ActionBarPrimitive.Reload>
     <ActionBarMorePrimitive.Root>
       <ActionBarMorePrimitive.Trigger asChild>
-        <TooltipIconButton
-          className="data-[state=open]:bg-accent"
-          tooltip="更多"
-        >
+        <TooltipIconButton className="data-[state=open]:bg-accent" tooltip="更多">
           <MoreHorizontalIcon />
         </TooltipIconButton>
       </ActionBarMorePrimitive.Trigger>

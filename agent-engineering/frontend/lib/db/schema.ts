@@ -2,6 +2,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
+  index,
   integer,
   json,
   pgTable,
@@ -233,6 +234,51 @@ export const draftOCRSample = pgTable("DraftOCRSample", {
 });
 
 export type DraftOCRSample = InferSelectModel<typeof draftOCRSample>;
+
+export const studentDiagnosisFeedback = pgTable(
+  "StudentDiagnosisFeedback",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+    chatId: uuid("chatId").references(() => chat.id),
+    diagnosisSessionId: uuid("diagnosisSessionId").references(
+      () => diagnosisSession.id
+    ),
+    draftOCRSampleId: uuid("draftOCRSampleId").references(
+      () => draftOCRSample.id
+    ),
+    source: varchar("source", { length: 64 }).notNull().default("tool_card"),
+    firstWrongStepPredicted: varchar("firstWrongStepPredicted", {
+      length: 128,
+    }),
+    firstWrongStepConfirmed: varchar("firstWrongStepConfirmed", {
+      length: 128,
+    }),
+    firstWrongAccepted: boolean("firstWrongAccepted"),
+    diagnosisHelpful: boolean("diagnosisHelpful"),
+    ocrHadError: boolean("ocrHadError"),
+    correctedLineCount: integer("correctedLineCount").notNull().default(0),
+    feedbackNote: text("feedbackNote"),
+    payloadJson: json("payloadJson").notNull().default({}),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdx: index("StudentDiagnosisFeedback_userId_idx").on(table.userId),
+    chatIdx: index("StudentDiagnosisFeedback_chatId_idx").on(table.chatId),
+    diagnosisIdx: index("StudentDiagnosisFeedback_diagnosisSessionId_idx").on(
+      table.diagnosisSessionId
+    ),
+    draftOCRSampleIdx: index(
+      "StudentDiagnosisFeedback_draftOCRSampleId_idx"
+    ).on(table.draftOCRSampleId),
+  })
+);
+
+export type StudentDiagnosisFeedback = InferSelectModel<
+  typeof studentDiagnosisFeedback
+>;
 
 export const atomMemory = pgTable("AtomMemory", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),

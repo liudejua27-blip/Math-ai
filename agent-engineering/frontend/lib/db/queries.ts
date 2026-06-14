@@ -50,6 +50,7 @@ import {
   type Suggestion,
   stream,
   suggestion,
+  studentDiagnosisFeedback,
   studentProfile,
   type User,
   user,
@@ -676,6 +677,7 @@ export async function exportUserPrivacyData({ userId }: { userId: string }) {
       diagnoses,
       runs,
       ocrSamples,
+      diagnosisFeedback,
     ] = await Promise.all([
       db
         .select({
@@ -700,6 +702,10 @@ export async function exportUserPrivacyData({ userId }: { userId: string }) {
         .where(eq(diagnosisSession.userId, userId)),
       db.select().from(mathAgentRun).where(eq(mathAgentRun.userId, userId)),
       db.select().from(draftOCRSample).where(eq(draftOCRSample.userId, userId)),
+      db
+        .select()
+        .from(studentDiagnosisFeedback)
+        .where(eq(studentDiagnosisFeedback.userId, userId)),
     ]);
 
     const chatIds = chats.map((item) => item.id);
@@ -765,6 +771,7 @@ export async function exportUserPrivacyData({ userId }: { userId: string }) {
         weeklyReports: reports,
         mathAgentRuns: runs,
         draftOCRSamples: ocrSamples,
+        diagnosisFeedback,
       },
       storageRefs: collectStoredImageRefs(ocrSamples),
     };
@@ -799,6 +806,10 @@ export async function deleteUserPrivacyData({ userId }: { userId: string }) {
     const chatIds = chats.map((item) => item.id);
     const diagnosisIds = diagnoses.map((item) => item.id);
     const storageRefs = collectStoredImageRefs(ocrSamples);
+
+    await db
+      .delete(studentDiagnosisFeedback)
+      .where(eq(studentDiagnosisFeedback.userId, userId));
 
     if (diagnosisIds.length > 0) {
       await db
@@ -853,6 +864,7 @@ export async function deleteUserPrivacyData({ userId }: { userId: string }) {
         diagnosisSessions: diagnosisIds.length,
         studentProfiles: profileIds.length,
         draftOCRSamples: ocrSamples.length,
+        diagnosisFeedback: true,
       },
       storageRefs,
       storageDeletion: {
@@ -1209,12 +1221,18 @@ export async function updateDraftOCRConfirmedSample({
 
     const rawProblemText = existing.extractedProblemText ?? "";
     const rawStepText = existing.extractedStudentSteps ?? "";
-    const confirmedText = `${confirmedResult.extractedProblemText}\n${confirmedResult.extractedStudentSteps}`;
+    const confirmedProblemText =
+      confirmedResult.confirmedProblemText?.trim() ||
+      confirmedResult.extractedProblemText;
+    const confirmedStudentSteps =
+      confirmedResult.confirmedStudentSteps?.trim() ||
+      confirmedResult.extractedStudentSteps;
+    const confirmedText = `${confirmedProblemText}\n${confirmedStudentSteps}`;
     const editSummary = buildDraftOCREditSummary({
       rawProblemText,
       rawStepText,
-      confirmedProblemText: confirmedResult.extractedProblemText,
-      confirmedStudentSteps: confirmedResult.extractedStudentSteps,
+      confirmedProblemText,
+      confirmedStudentSteps,
     });
     const issueStats = computeDraftOCRIssueStats({
       rawText: `${rawProblemText}\n${rawStepText}`,
@@ -1222,18 +1240,25 @@ export async function updateDraftOCRConfirmedSample({
       lowConfidenceCount: confirmedResult.lowConfidenceItems.length,
       rawCropCount: collectDraftOCRRawCropRefs(confirmedResult).length,
     });
+    const hasStudentLabels =
+      Boolean(confirmedResult.confirmedFirstWrongStep?.trim()) ||
+      Boolean(confirmedResult.ocrAnnotations?.length);
 
     const [updated] = await db
       .update(draftOCRSample)
       .set({
         status: "confirmed",
         confirmedResultJson: confirmedResult,
-        confirmedProblemText: confirmedResult.extractedProblemText,
-        confirmedStudentSteps: confirmedResult.extractedStudentSteps,
+        confirmedProblemText,
+        confirmedStudentSteps,
+        confirmedFirstWrongStep:
+          confirmedResult.confirmedFirstWrongStep?.trim() || null,
         editSummaryJson: editSummary,
         issueStatsJson: issueStats,
         labelStatus:
-          editSummary.changedLineCount > 0 || issueStats.totalIssueCount > 0
+          editSummary.changedLineCount > 0 ||
+          issueStats.totalIssueCount > 0 ||
+          hasStudentLabels
             ? "needs_review"
             : "unlabeled",
         updatedAt: new Date(),
@@ -1275,6 +1300,67 @@ export async function updateDraftOCRDiagnosisOutcome({
       .where(and(eq(draftOCRSample.id, sampleId), eq(draftOCRSample.userId, userId)))
       .returning();
     return updated ?? null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+export async function saveStudentDiagnosisFeedback({
+  userId,
+  chatId,
+  diagnosisSessionId,
+  draftOCRSampleId,
+  source = "tool_card",
+  firstWrongStepPredicted,
+  firstWrongStepConfirmed,
+  firstWrongAccepted,
+  diagnosisHelpful,
+  ocrHadError,
+  correctedLineCount = 0,
+  feedbackNote,
+  payload = {},
+}: {
+  userId: string;
+  chatId?: string | null;
+  diagnosisSessionId?: string | null;
+  draftOCRSampleId?: string | null;
+  source?: "tool_card" | "ocr_confirmation" | "inspector" | "history";
+  firstWrongStepPredicted?: string | null;
+  firstWrongStepConfirmed?: string | null;
+  firstWrongAccepted?: boolean | null;
+  diagnosisHelpful?: boolean | null;
+  ocrHadError?: boolean | null;
+  correctedLineCount?: number;
+  feedbackNote?: string | null;
+  payload?: Record<string, unknown>;
+}) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [feedback] = await db
+      .insert(studentDiagnosisFeedback)
+      .values({
+        userId,
+        chatId: isUuid(chatId) ? chatId : null,
+        diagnosisSessionId: isUuid(diagnosisSessionId)
+          ? diagnosisSessionId
+          : null,
+        draftOCRSampleId: isUuid(draftOCRSampleId) ? draftOCRSampleId : null,
+        source,
+        firstWrongStepPredicted: firstWrongStepPredicted?.trim() || null,
+        firstWrongStepConfirmed: firstWrongStepConfirmed?.trim() || null,
+        firstWrongAccepted: firstWrongAccepted ?? null,
+        diagnosisHelpful: diagnosisHelpful ?? null,
+        ocrHadError: ocrHadError ?? null,
+        correctedLineCount: Math.max(0, Math.floor(correctedLineCount)),
+        feedbackNote: feedbackNote?.trim() || null,
+        payloadJson: payload,
+      })
+      .returning();
+
+    return feedback;
   } catch (_error) {
     return null;
   }
@@ -2101,7 +2187,7 @@ function buildWeeklyRecommendedPlan(atoms: Array<typeof atomMemory.$inferSelect>
       return `先完成 ${atom.atomId} 的订正复盘，再做 1 道表层变式。`;
     }
     if (atom.transferRate < 0.45) {
-      return `围绕 ${atom.atomId} 做 2 道结构/迁移变式，重点检查是否换题仍会。`;
+      return `围绕 ${atom.atomId} 做 2 道结构迁移变式，重点检查换题后是否仍会复发。`;
     }
     return `复查 ${atom.atomId}，用 1 道 Boss 综合题确认稳定掌握。`;
   });

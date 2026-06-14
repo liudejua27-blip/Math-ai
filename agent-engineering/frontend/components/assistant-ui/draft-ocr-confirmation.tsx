@@ -1,7 +1,12 @@
 "use client";
 
 import { useComposerRuntime } from "@assistant-ui/react";
-import { FileImageIcon, LoaderIcon, UploadIcon } from "lucide-react";
+import {
+  FileImageIcon,
+  LoaderIcon,
+  ShieldCheckIcon,
+  UploadIcon,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { DraftOCRResult } from "@/lib/ai/draft-ocr-types";
@@ -57,31 +62,35 @@ export function DraftOCRConfirmation({ chatId }: DraftOCRConfirmationProps) {
       result.extractedStudentSteps.trim();
     const formulaLatex = result.confirmedFormulaLatex?.filter(Boolean) ?? [];
     const readyForDiagnosis = Boolean(problemText && studentSteps);
+    const studentEdits = [
+      ...(result.studentEdits ?? []),
+      {
+        itemId: "confirmed-problem",
+        kind: "problem" as const,
+        before: result.extractedProblemText,
+        after: problemText,
+      },
+      {
+        itemId: "confirmed-steps",
+        kind: "student_step" as const,
+        before: result.extractedStudentSteps,
+        after: studentSteps,
+      },
+    ];
+    const correctedLineCount = studentEdits.filter(
+      (item) => item.before.trim() !== item.after.trim()
+    ).length;
     const confirmedResult: DraftOCRResult = {
       ...result,
       status: readyForDiagnosis ? "completed" : "needs_confirmation",
       confirmedProblemText: problemText,
       confirmedStudentSteps: studentSteps,
       confirmedFormulaLatex: formulaLatex,
-      confirmedFirstWrongStep: result.confirmedFirstWrongStep,
+      confirmedFirstWrongStep: result.confirmedFirstWrongStep?.trim() || undefined,
       ocrAnnotations: result.ocrAnnotations ?? [],
       readyForDiagnosis,
       requiresStudentConfirmation: !readyForDiagnosis,
-      studentEdits: [
-        ...(result.studentEdits ?? []),
-        {
-          itemId: "confirmed-problem",
-          kind: "problem",
-          before: result.extractedProblemText,
-          after: problemText,
-        },
-        {
-          itemId: "confirmed-steps",
-          kind: "student_step",
-          before: result.extractedStudentSteps,
-          after: studentSteps,
-        },
-      ],
+      studentEdits,
     };
 
     if (result.sampleId) {
@@ -96,6 +105,30 @@ export function DraftOCRConfirmation({ chatId }: DraftOCRConfirmationProps) {
           }),
         }
       ).catch(() => null);
+
+      await fetch(
+        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/learning/diagnosis-feedback`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chatId,
+            draftOCRSampleId: result.sampleId,
+            source: "ocr_confirmation",
+            firstWrongStepConfirmed:
+              confirmedResult.confirmedFirstWrongStep ?? null,
+            ocrHadError: Boolean(
+              confirmedResult.ocrAnnotations?.some((item) => item.ocrWasWrong)
+            ),
+            correctedLineCount,
+            payload: {
+              lowConfidenceCount: result.lowConfidenceItems.length,
+              readyForDiagnosis,
+              ocrAnnotations: confirmedResult.ocrAnnotations ?? [],
+            },
+          }),
+        }
+      ).catch(() => null);
     }
 
     const diagnosisPrompt = buildDiagnosisPrompt(confirmedResult);
@@ -104,6 +137,9 @@ export function DraftOCRConfirmation({ chatId }: DraftOCRConfirmationProps) {
       send?: () => void;
     } | null;
     runtime?.setText?.(diagnosisPrompt);
+    if (runtime?.setText && readyForDiagnosis) {
+      window.setTimeout(() => runtime.send?.(), 0);
+    }
     if (!runtime?.setText) {
       await navigator.clipboard.writeText(diagnosisPrompt).catch(() => null);
     }
@@ -229,8 +265,8 @@ function DraftOCRDrawer({
               </div>
               <div className="mt-1 text-muted-foreground text-xs">
                 {lowConfidence
-                  ? `发现 ${result.lowConfidenceItems.length} 个低置信项目，请逐行修正。`
-                  : "未发现明显低置信项目，仍建议快速核对题干和步骤。"}
+                  ? `发现 ${result.lowConfidenceItems.length} 个低置信项，请逐行修正。`
+                  : "未发现明显低置信项，仍建议快速核对题干和步骤。"}
               </div>
               {result.engineReports?.length ? (
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -245,6 +281,14 @@ function DraftOCRDrawer({
                   ))}
                 </div>
               ) : null}
+            </div>
+            <div className="rounded-lg border border-amber-200/70 bg-amber-50/80 p-3 text-amber-950 text-xs dark:border-amber-900/70 dark:bg-amber-950/25 dark:text-amber-50">
+              <div className="flex items-start gap-2">
+                <ShieldCheckIcon className="mt-0.5 size-4 shrink-0" />
+                <div>
+                  上传前请确认图片只包含数学草稿。未成年人请在监护人同意下使用；你可以在隐私设置中导出或删除草稿识别记录。
+                </div>
+              </div>
             </div>
             <EditorField
               label="确认后的题干"
@@ -288,7 +332,7 @@ function DraftOCRDrawer({
                 <div>
                   <div className="font-medium text-sm">OCR-to-diagnosis 标注</div>
                   <div className="mt-1 text-muted-foreground text-xs">
-                    标注识别错误、实际步骤编号和第一错步，用于后续改进首错定位。
+                    标注识别错误、实际步骤编号和第一错步，用于持续改进首错定位。
                   </div>
                 </div>
                 {lineItems.slice(0, 8).map((line) => {
@@ -349,7 +393,7 @@ function DraftOCRDrawer({
         </div>
         <div className="flex items-center justify-between gap-3 border-t px-4 py-3">
           <div className="text-muted-foreground text-xs">
-            确认后会把标准诊断文本填入输入框，你再发送即可。
+            确认后会自动发送诊断；如果浏览器阻止自动发送，会填入输入框供你手动发送。
           </div>
           <Button
             className="rounded-full"
