@@ -54,7 +54,7 @@ export const editDocument = ({ session, dataStream }: EditDocumentProps) =>
       await saveDocument({
         id: document.id,
         title: document.title,
-        kind: document.kind,
+        kind: document.kind as "text" | "code" | "sheet",
         content: updated,
         userId: document.userId,
       });

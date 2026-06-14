@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import type {
   MathDiagnosisResult,
   MathDiagnosisToolResult,
@@ -17,15 +16,19 @@ import {
 import { cn } from "@/lib/utils";
 import {
   CorrectionCardPanel,
+  ExperienceQualityPanel,
   FirstWrongStepPanel,
+  FunctionVisualExplanationPanel,
   GeometryLabRecommendationPanel,
   LearnerMemoryPanel,
   MisconceptionAtomsPanel,
   PolicyPanel,
   RemediationPlanPanel,
+  SolutionMethodsPanel,
   StepAlignmentDetailsPanel,
   StrictChecksPanel,
   VerifierTracePanel,
+  VisualExplanationPanel,
 } from "./math-diagnosis-panels";
 
 type AgentInspectorProps = {
@@ -53,15 +56,15 @@ export function AgentInspector({
 }: AgentInspectorProps) {
   if (mobileMode === "drawer") {
     return (
-      <div className="fixed inset-0 z-50 bg-black/40 xl:hidden">
-        <div className="absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-hidden rounded-t-xl border-border/70 border-t bg-background shadow-xl">
+      <div className="fixed inset-0 z-50 bg-black/40">
+        <div className="absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-hidden rounded-t-xl border-border/70 border-t bg-background shadow-xl xl:inset-y-0 xl:right-0 xl:left-auto xl:max-h-none xl:w-[420px] xl:rounded-none xl:border-t-0 xl:border-l">
           <InspectorShell
             exportable={exportable}
+            liveEvents={liveEvents}
             onControlAction={onControlAction}
             onToggle={onToggle}
             result={result}
             runtimeStatus={runtimeStatus}
-            liveEvents={liveEvents}
             titleAction="关闭"
           />
         </div>
@@ -78,7 +81,10 @@ export function AgentInspector({
       style={
         collapsed
           ? undefined
-          : ({ "--workbench-inspector-width": `${width}px`, width } as CSSProperties)
+          : ({
+              "--workbench-inspector-width": `${width}px`,
+              width,
+            } as CSSProperties)
       }
     >
       {collapsed ? (
@@ -92,11 +98,11 @@ export function AgentInspector({
       ) : (
         <InspectorShell
           exportable={exportable}
+          liveEvents={liveEvents}
           onControlAction={onControlAction}
           onToggle={onToggle}
           result={result}
           runtimeStatus={runtimeStatus}
-          liveEvents={liveEvents}
           titleAction="收起"
         />
       )}
@@ -148,7 +154,7 @@ function InspectorShell({
         <div>
           <div className="font-semibold text-sm">Agent Inspector</div>
           <div className="mt-1 text-muted-foreground text-xs">
-            实时运行、验证链、画像更新和几何推荐
+            实时运行、验证链、学习画像更新和可视化推荐
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -214,10 +220,18 @@ function InspectorContent({
   events: WorkbenchEvent[];
   runtimeStatus: MathAgentRunStatus;
 }) {
+  const [traceView, setTraceView] = useState<"student" | "engineering">(
+    "student"
+  );
+  const traceToggle = (
+    <TraceViewToggle current={traceView} onChange={setTraceView} />
+  );
+
   if (!result) {
     return (
       <>
         <EmptyInspector />
+        {traceToggle}
         <WorkbenchTimeline events={events} runtimeStatus={runtimeStatus} />
       </>
     );
@@ -231,9 +245,14 @@ function InspectorContent({
         </div>
         {result.policyDecision && <PolicyPanel policy={result.policyDecision} />}
         {result.correctionCard && (
-          <CorrectionCardPanel card={result.correctionCard} compact={true} />
+          <CorrectionCardPanel card={result.correctionCard} compact />
         )}
-        <WorkbenchTimeline events={events} runtimeStatus={runtimeStatus} />
+        {traceToggle}
+        {traceView === "student" ? (
+          <StudentReadableTracePanel result={result} />
+        ) : (
+          <WorkbenchTimeline events={events} runtimeStatus={runtimeStatus} />
+        )}
       </>
     );
   }
@@ -241,17 +260,101 @@ function InspectorContent({
   return (
     <>
       <StatusSummary result={result} />
+      <ExperienceQualityPanel result={result} />
       <FirstWrongStepPanel result={result} />
       <StepAlignmentDetailsPanel result={result} />
       <PolicyPanel policy={result.policyDecision} />
       <MisconceptionAtomsPanel result={result} />
       <StrictChecksPanel result={result} />
       <VerifierTracePanel result={result} />
+      <SolutionMethodsPanel result={result} />
+      <VisualExplanationPanel spec={result.visualExplanation} />
+      <FunctionVisualExplanationPanel spec={result.functionVisualExplanation} />
       <LearnerMemoryPanel result={result} />
       <RemediationPlanPanel result={result} />
       <GeometryLabRecommendationPanel result={result} />
-      <WorkbenchTimeline events={events} runtimeStatus={runtimeStatus} />
+      {traceToggle}
+      {traceView === "student" ? (
+        <StudentReadableTracePanel result={result} />
+      ) : (
+        <WorkbenchTimeline events={events} runtimeStatus={runtimeStatus} />
+      )}
     </>
+  );
+}
+
+function TraceViewToggle({
+  current,
+  onChange,
+}: {
+  current: "student" | "engineering";
+  onChange: (view: "student" | "engineering") => void;
+}) {
+  return (
+    <div className="flex rounded-md border border-border/70 bg-muted/30 p-1 text-xs">
+      <button
+        className={cn(
+          "flex-1 rounded px-2 py-1 transition",
+          current === "student" && "bg-background shadow-sm"
+        )}
+        onClick={() => onChange("student")}
+        type="button"
+      >
+        学生可读过程
+      </button>
+      <button
+        className={cn(
+          "flex-1 rounded px-2 py-1 transition",
+          current === "engineering" && "bg-background shadow-sm"
+        )}
+        onClick={() => onChange("engineering")}
+        type="button"
+      >
+        工程 Trace
+      </button>
+    </div>
+  );
+}
+
+function StudentReadableTracePanel({
+  result,
+}: {
+  result: MathDiagnosisToolResult | null;
+}) {
+  if (!result || "error" in result || !result.studentReadableTrace?.length) {
+    return (
+      <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 p-3 text-muted-foreground text-sm">
+        完成一次诊断后，这里会显示学生可读版过程。
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        学生可读过程
+      </div>
+      <div className="grid gap-2">
+        {result.studentReadableTrace.map((item) => (
+          <div className="ms-timeline-item px-3 py-2 text-sm" key={item.title}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">{item.title}</span>
+              <span
+                className={cn(
+                  "rounded-md px-2 py-0.5 text-xs",
+                  statusTone(item.status)
+                )}
+              >
+                {formatStatus(item.status)}
+              </span>
+            </div>
+            <div className="mt-1 text-muted-foreground text-xs leading-5">
+              {item.message}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -285,7 +388,8 @@ function RuntimeStatusPanel({
               "bg-red-500/10 text-red-700 dark:text-red-300",
             runtimeStatus === "interrupted" &&
               "bg-amber-500/10 text-amber-700 dark:text-amber-300",
-            (runtimeStatus === "idle" || runtimeStatus === "waiting_approval") &&
+            (runtimeStatus === "idle" ||
+              runtimeStatus === "waiting_approval") &&
               "bg-muted text-muted-foreground"
           )}
         >
@@ -363,7 +467,7 @@ function StatusSummary({ result }: { result: MathDiagnosisResult }) {
         )}
       </div>
       <div className="mt-2 text-muted-foreground text-xs leading-5">
-        这里展示 workflow 产出的结构化结果，前端不临时猜测数学结论。
+        这里展示 workflow 产出的结构化结果，前端不会临时猜测数学结论。
       </div>
     </div>
   );
@@ -395,7 +499,8 @@ function WorkbenchTimeline({
             type: "diagnosis_started" as const,
             title: "等待实时事件",
             status: "running" as const,
-            detail: "Runtime 正在运行，事件会通过 SSE / workflow hooks 持续追加。",
+            detail:
+              "Runtime 正在运行，事件会通过 SSE 或 workflow hooks 持续追加。",
             phase: "runtime" as const,
           },
         ]
@@ -415,8 +520,13 @@ function WorkbenchTimeline({
           <div className="ms-timeline-item px-3 py-2 text-sm" key={item.id}>
             <div className="flex items-center justify-between gap-2">
               <span className="font-medium">{item.title}</span>
-              <span className={cn("rounded-md px-2 py-0.5 text-xs", statusTone(item.status))}>
-                {item.status}
+              <span
+                className={cn(
+                  "rounded-md px-2 py-0.5 text-xs",
+                  statusTone(item.status)
+                )}
+              >
+                {formatStatus(item.status)}
               </span>
             </div>
             <div className="mt-1 text-muted-foreground text-xs leading-5">
@@ -450,6 +560,12 @@ function buildExportSummary(result: MathDiagnosisToolResult | null) {
     `错因：${result.firstWrongReason ?? "暂未生成"}`,
     `置信度：${Math.round(result.confidence * 100)}%`,
     `人工复核：${result.needHumanReview ? "需要" : "不需要"}`,
+    ...(result.solutionComparison
+      ? [
+          `推荐解法：${result.solutionComparison.recommendedMethodId}`,
+          `最快解法：${result.solutionComparison.fastestMethodId}`,
+        ]
+      : []),
     `错因原子：${result.misconceptionAtoms
       .map((atom) => atom.label || atom.id)
       .join("、")}`,
@@ -489,8 +605,22 @@ function buildReadableReport(
         )
       : ["- 暂无训练计划。"]),
     "",
+    ...(result.solutionComparison
+      ? [
+          "## 推荐解法与最快解法",
+          `推荐解法：${result.solutionComparison.recommendedMethodId}`,
+          `最快解法：${result.solutionComparison.fastestMethodId}`,
+          result.solutionComparison.reason,
+          ...(result.solutionMethods ?? []).map(
+            (method) =>
+              `- ${method.id} ${method.title}：约 ${method.estimatedMinutes} 分钟，${method.bestFor}`
+          ),
+          "",
+        ]
+      : []),
+    "",
     "## Runtime Trace",
-    ...events.map((item) => `- [${item.status}] ${item.title}：${item.detail}`),
+    ...events.map((item) => `- [${formatStatus(item.status)}] ${item.title}：${item.detail}`),
   ].join("\n");
 }
 
@@ -524,18 +654,26 @@ function formatRuntimeStatus(status: MathAgentRunStatus) {
   return labels[status];
 }
 
-function statusTone(status: string) {
-  if (status === "running" || status === "queued") {
-    return "bg-blue-500/10 text-blue-700 dark:text-blue-300";
-  }
-  if (status === "completed") {
-    return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-  }
-  if (status === "warn" || status === "blocked") {
-    return "bg-amber-500/10 text-amber-700 dark:text-amber-300";
-  }
-  if (status === "failed") {
-    return "bg-red-500/10 text-red-700 dark:text-red-300";
-  }
-  return "bg-muted text-muted-foreground";
+function formatStatus(status: string) {
+  const labels: Record<string, string> = {
+    queued: "排队中",
+    running: "运行中",
+    completed: "完成",
+    warn: "需确认",
+    blocked: "阻断",
+    failed: "失败",
+  };
+  return labels[status] ?? status;
+}
+
+function statusTone(status: WorkbenchEvent["status"] | string) {
+  const tones: Record<string, string> = {
+    queued: "bg-muted text-muted-foreground",
+    running: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
+    completed: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    warn: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    blocked: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    failed: "bg-red-500/10 text-red-700 dark:text-red-300",
+  };
+  return tones[status] ?? "bg-muted text-muted-foreground";
 }

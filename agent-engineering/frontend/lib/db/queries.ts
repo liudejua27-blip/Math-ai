@@ -14,8 +14,8 @@ import {
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import type { ArtifactKind } from "@/components/chat/artifact";
-import type { VisibilityType } from "@/components/chat/visibility-selector";
+import type { ArtifactKind } from "@/lib/artifacts/types";
+import type { VisibilityType } from "@/lib/chat/visibility-types";
 import type {
   MathDiagnosisRequest,
   MathDiagnosisResult,

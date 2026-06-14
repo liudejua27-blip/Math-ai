@@ -52,7 +52,7 @@ export function GeometryTaskPanel({
                 <div>
                   <div className="font-medium text-sm">{solver.prompt}</div>
                   <div className="mt-1 text-muted-foreground text-xs">
-                    {solver.kind}
+                    {formatSolverKind(solver.kind)}
                   </div>
                 </div>
                 <span
@@ -131,4 +131,14 @@ export function GeometryTaskPanel({
       </label>
     </section>
   );
+}
+
+function formatSolverKind(kind: string) {
+  const labels: Record<string, string> = {
+    line_plane_angle: "线面角",
+    dihedral_angle: "二面角",
+    section_construction: "截面构造",
+    generic_constraint: "几何约束",
+  };
+  return labels[kind] ?? kind;
 }

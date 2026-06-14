@@ -69,6 +69,36 @@ export function validateGeometrySceneSpec(
     }
   }
 
+  const cameraPresetIds = new Set(scene.cameraPresets?.map((item) => item.id) ?? []);
+  for (const item of scene.animationSteps ?? []) {
+    if (!item.id) {
+      errors.push("Animation step id is required.");
+    }
+    for (const refId of item.refs) {
+      if (!(selectableRefs.has(refId) || targetIds.has(refId))) {
+        errors.push(`Animation step ${item.id} references missing object ${refId}.`);
+      }
+    }
+    if (item.cameraPresetId && !cameraPresetIds.has(item.cameraPresetId)) {
+      errors.push(
+        `Animation step ${item.id} references missing camera preset ${item.cameraPresetId}.`
+      );
+    }
+  }
+
+  for (const item of scene.wrongObjectHighlights ?? []) {
+    if (!Array.isArray(item.refs) || item.refs.length === 0) {
+      errors.push(`Wrong object highlight ${item.id} must include refs.`);
+    }
+    for (const refId of item.refs) {
+      if (!selectableRefs.has(refId)) {
+        errors.push(
+          `Wrong object highlight ${item.id} references missing object ${refId}.`
+        );
+      }
+    }
+  }
+
   if (scene.assessment.maxAttempts < 1) {
     errors.push("Assessment maxAttempts must be at least 1.");
   }

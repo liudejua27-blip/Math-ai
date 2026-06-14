@@ -56,8 +56,11 @@ function GeometryScene3D({
   const pulseRef = useRef(0);
   const selected = useMemo(() => new Set(selectedRefs), [selectedRefs]);
   const activeTimeline = useMemo(
-    () => scene.timeline.find((item) => item.id === activeTimelineId) ?? null,
-    [activeTimelineId, scene.timeline]
+    () =>
+      scene.timeline.find((item) => item.id === activeTimelineId) ??
+      scene.animationSteps?.find((item) => item.id === activeTimelineId) ??
+      null,
+    [activeTimelineId, scene.timeline, scene.animationSteps]
   );
   const activeRefs = useMemo(
     () => new Set(activeTimeline?.refs ?? []),

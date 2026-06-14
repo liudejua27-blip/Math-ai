@@ -16,7 +16,7 @@ const FEATURED_COPY: Record<
     title: "正方体线面角",
     summary: "先找斜线在底面上的投影，再把线面角转成平面角。",
     exampleProblem:
-      "正方体 ABCD-A1B1C1D1 中，求 A1C 与底面 ABCD 所成角。",
+      "正方体 ABCD-A1B1C1D1 中，求 A1C 与底面 ABCD 所成的角。",
     variantPrompt:
       "变式：把斜线改为 B1D，先指出它在底面上的投影，再说明线面角是哪一个平面角。",
     completionHint: "订正完成后，下一题优先练“找投影再看角”。",

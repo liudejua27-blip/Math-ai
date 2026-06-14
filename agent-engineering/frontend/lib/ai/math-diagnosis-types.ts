@@ -47,8 +47,165 @@ export type HtmlMathCardSpec = {
         evidenceIds: string[];
       }
     | { kind: "thinking_graph"; graph: MathThinkingGraphSpec }
+    | { kind: "visual_explanation"; spec: VisualExplanationSpec }
+    | { kind: "function_visual_explanation"; spec: FunctionVisualExplanationSpec }
+    | { kind: "solution_method"; method: MathSolutionMethod }
+    | { kind: "solution_comparison"; comparison: MathSolutionComparison }
     | { kind: "variant"; title: string; text: string }
   >;
+};
+
+export type VisualExplanationSpec = {
+  type: "visual_explanation";
+  title: string;
+  blocks: Array<
+    | {
+        kind: "condition_highlight";
+        text: string;
+        evidenceIds: string[];
+      }
+    | {
+        kind: "wrong_step_highlight";
+        stepId: string;
+        text: string;
+        evidenceIds: string[];
+      }
+    | {
+        kind: "correct_path";
+        title: string;
+        steps: string[];
+        methodId?: string;
+      }
+    | {
+        kind: "risk_warning";
+        text: string;
+        atomIds: string[];
+      }
+  >;
+  linkedGeometryLabLevelId?: string;
+};
+
+export type FunctionVisualExplanationSpec = {
+  type: "function_visual_explanation";
+  title: string;
+  topic:
+    | "derivative_domain"
+    | "parameter_for_all"
+    | "quadratic_interval"
+    | "monotonicity_extremum"
+    | "generic_function";
+  domainHighlights: Array<{
+    id: string;
+    text: string;
+    source: "problem" | "student_step" | "verifier";
+    evidenceIds: string[];
+  }>;
+  intervals: Array<{
+    id: string;
+    label: string;
+    from: string;
+    to: string;
+    openLeft: boolean;
+    openRight: boolean;
+    status: "valid" | "excluded" | "critical" | "unknown";
+  }>;
+  criticalPoints: Array<{
+    id: string;
+    label: string;
+    value: string;
+    role: "endpoint" | "stationary" | "vertex" | "boundary" | "unknown";
+    evidenceIds: string[];
+  }>;
+  monotonicityRows: Array<{
+    intervalId: string;
+    derivativeSign: "+" | "-" | "0" | "unknown";
+    trend: "increasing" | "decreasing" | "constant" | "unknown";
+    reason: string;
+  }>;
+  parameterTransform?: {
+    originalClaim: string;
+    transformedClaim: string;
+    parameter: string;
+    targetExpression: string;
+    extremumType: "max" | "min" | "range" | "unknown";
+    riskWarning: string;
+  };
+  quadraticShape?: {
+    expression: string;
+    axis: string;
+    vertex: string;
+    discriminant?: string;
+    opening: "up" | "down" | "unknown";
+    intervalRestriction?: string;
+  };
+  riskWarnings: Array<{
+    atomIds: string[];
+    message: string;
+  }>;
+};
+
+export type RecommendedNextAction =
+  | "repair"
+  | "variant"
+  | "geometry_lab"
+  | "review_plan";
+
+export type StudentReadableTraceItem = {
+  title: string;
+  status: "completed" | "warn" | "blocked" | "failed";
+  message: string;
+};
+
+export type ExperienceQualityReport = {
+  overallScore: number;
+  level:
+    | "world_class_candidate"
+    | "mvp_strong"
+    | "needs_review"
+    | "blocked";
+  summary: string;
+  checks: Array<{
+    id: string;
+    label: string;
+    status: "pass" | "warn" | "fail";
+    score: number;
+    message: string;
+    nextAction?: string;
+  }>;
+};
+
+export type MathSolutionStrategyType =
+  | "derivative_table"
+  | "parameter_extremum"
+  | "exam_shortcut"
+  | "discriminant_vertex"
+  | "synthetic_geometry"
+  | "vector_geometry"
+  | "geometry_lab_visual"
+  | "generic_structured"
+  | "generic_fast";
+
+export type MathSolutionMethod = {
+  id: string;
+  title: string;
+  strategyType: MathSolutionStrategyType;
+  isRecommended: boolean;
+  isFastest: boolean;
+  estimatedMinutes: number;
+  difficulty: "easy" | "standard" | "hard";
+  bestFor: string;
+  riskWarnings: string[];
+  keySteps: string[];
+  verificationFocus: string[];
+  relatedAtomIds: string[];
+  verifierTraceIds: string[];
+};
+
+export type MathSolutionComparison = {
+  recommendedMethodId: string;
+  fastestMethodId: string;
+  reason: string;
+  examTip: string;
 };
 
 export type ClaimTrace = {
@@ -252,6 +409,13 @@ export type MathDiagnosisResult = {
   learnerMemoryDelta?: LearnerMemoryDelta;
   learnerMemoryGuidance?: LearnerMemoryGuidance;
   remediationPlan?: RemediationPlan;
+  solutionMethods: MathSolutionMethod[];
+  solutionComparison: MathSolutionComparison;
+  visualExplanation?: VisualExplanationSpec;
+  functionVisualExplanation?: FunctionVisualExplanationSpec;
+  recommendedNextAction?: RecommendedNextAction;
+  studentReadableTrace?: StudentReadableTraceItem[];
+  experienceQuality?: ExperienceQualityReport;
   thinkingGraph: MathThinkingGraphSpec;
   correctionCard: HtmlMathCardSpec;
   recommendedGeometryLabs?: GeometryLabRecommendation[];

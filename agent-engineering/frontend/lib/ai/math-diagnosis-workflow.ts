@@ -4,8 +4,14 @@ import type {
   MathDiagnosisRequest,
   MathDiagnosisResult,
   MathDiagnosisToolResult,
+  RecommendedNextAction,
+  MathSolutionComparison,
+  MathSolutionMethod,
   MathThinkingGraphSpec,
+  FunctionVisualExplanationSpec,
+  VisualExplanationSpec,
 } from "./math-diagnosis-types";
+import { buildFunctionVisualExplanationSpec } from "./function-visual-explanation-engine";
 import { updateLearnerMemoryAfterDiagnosis } from "./learner-memory-engine";
 import {
   buildLayeredVerifierReport,
@@ -14,6 +20,13 @@ import {
 import { buildRemediationPlan } from "./remediation-loop-engine";
 import { runTypeScriptMathDiagnosis } from "./math-rules-engine";
 import { decideSocraticPolicy } from "./socratic-policy-engine";
+import { buildSolutionMethodPlan } from "./solution-method-planner";
+import {
+  buildStudentReadableTrace,
+  buildVisualExplanationSpec,
+  chooseRecommendedNextAction,
+} from "./visual-explanation-engine";
+import { buildExperienceQualityReport } from "./experience-quality-gate";
 import { verifyStudentSteps } from "./step-verifier-engine";
 import { buildVerifierTraces } from "./verifier-trace-engine";
 import {
@@ -57,6 +70,13 @@ type GeneratedDiagnosisFields =
   | "verifierTraces"
   | "learnerMemoryDelta"
   | "remediationPlan"
+  | "solutionMethods"
+  | "solutionComparison"
+  | "visualExplanation"
+  | "functionVisualExplanation"
+  | "recommendedNextAction"
+  | "studentReadableTrace"
+  | "experienceQuality"
   | "thinkingGraph"
   | "correctionCard";
 type CoreDiagnosis = Omit<MathDiagnosisResult, GeneratedDiagnosisFields>;
@@ -290,7 +310,72 @@ export async function runMathDiagnosisWorkflow(
     phase: "workflow",
   });
   const thinkingGraph = buildThinkingGraph(result, input.problemText);
-  const completedResult = {
+  const { solutionMethods, solutionComparison } = buildSolutionMethodPlan({
+    problemText: input.problemText,
+    studentSteps: input.studentSteps,
+    topic: rawDiagnosis.topic,
+    strictChecks: result.strictChecks,
+    misconceptionAtoms: result.misconceptionAtoms,
+    verifierTraces,
+    learnerMemoryGuidance,
+    needHumanReview: result.needHumanReview,
+  });
+  await emit(
+    "solution_methods_ready",
+    "多解法方案已生成",
+    "completed",
+    `${solutionMethods.length} 种解法已生成，推荐解法 ${solutionComparison.recommendedMethodId}，最快解法 ${solutionComparison.fastestMethodId}。`,
+    { phase: "workflow", replayable: true }
+  );
+  const visualExplanation = buildVisualExplanationSpec({
+    problemText: input.problemText,
+    diagnosis: {
+      ...result,
+      solutionMethods,
+      solutionComparison,
+    },
+  });
+  const functionVisualExplanation = buildFunctionVisualExplanationSpec({
+    problemText: input.problemText,
+    studentSteps: input.studentSteps,
+    diagnosis: result,
+  });
+  await emit(
+    "visual_explanation_ready",
+    "图上讲解已生成",
+    "completed",
+    visualExplanation.linkedGeometryLabLevelId
+      ? `已绑定 Geometry Lab 场景 ${visualExplanation.linkedGeometryLabLevelId}。`
+      : "已生成条件高亮、错步高亮、正确转化路径和风险提醒。",
+    { phase: "workflow", replayable: true }
+  );
+  if (functionVisualExplanation) {
+    await emit(
+      "function_visual_explanation_ready",
+      "函数图上讲解已生成",
+      "completed",
+      `${functionVisualExplanation.title}：已生成定义域、区间、关键点和风险提醒。`,
+      { phase: "workflow", replayable: true }
+    );
+  }
+  const recommendedNextAction = chooseRecommendedNextAction({
+    ...result,
+    remediationPlan,
+  });
+  const studentReadableTrace = buildStudentReadableTrace({
+    ...result,
+    verifierTraces,
+    solutionMethods,
+    recommendedNextAction,
+  });
+  await emit(
+    "next_action_ready",
+    "今日下一步已生成",
+    "completed",
+    formatRecommendedNextAction(recommendedNextAction),
+    { phase: "workflow", replayable: true }
+  );
+  const resultWithoutQuality = {
     ...result,
     socraticQuestions,
     policyDecision,
@@ -299,6 +384,12 @@ export async function runMathDiagnosisWorkflow(
     learnerMemoryDelta,
     learnerMemoryGuidance,
     remediationPlan,
+    solutionMethods,
+    solutionComparison,
+    visualExplanation,
+    functionVisualExplanation,
+    recommendedNextAction,
+    studentReadableTrace,
     thinkingGraph,
     correctionCard: buildCorrectionCard({
       diagnosis: result,
@@ -306,7 +397,23 @@ export async function runMathDiagnosisWorkflow(
       backendResult: rawDiagnosis,
       socraticQuestions,
       thinkingGraph,
+      solutionMethods,
+      solutionComparison,
+      visualExplanation,
+      functionVisualExplanation,
     }),
+  };
+  const experienceQuality = buildExperienceQualityReport(resultWithoutQuality);
+  await emit(
+    "experience_quality_checked",
+    "体验质量自检已完成",
+    experienceQuality.level === "blocked" ? "blocked" : experienceQuality.level === "needs_review" ? "warn" : "completed",
+    `${experienceQuality.overallScore}/100 · ${experienceQuality.summary}`,
+    { phase: "workflow", replayable: true }
+  );
+  const completedResult = {
+    ...resultWithoutQuality,
+    experienceQuality,
   };
   await emit("correction_card_ready", "订正卡已生成", "completed", `${completedResult.correctionCard.blocks.length} 个讲解 block 已生成。`, {
     phase: "workflow",
@@ -636,12 +743,20 @@ function buildCorrectionCard({
   backendResult,
   socraticQuestions,
   thinkingGraph,
+  solutionMethods,
+  solutionComparison,
+  visualExplanation,
+  functionVisualExplanation,
 }: {
   diagnosis: CoreDiagnosis;
   problemText: string;
   backendResult: RawDiagnosis;
   socraticQuestions: string[];
   thinkingGraph: MathThinkingGraphSpec;
+  solutionMethods: MathSolutionMethod[];
+  solutionComparison: MathSolutionComparison;
+  visualExplanation: VisualExplanationSpec;
+  functionVisualExplanation?: FunctionVisualExplanationSpec;
 }): HtmlMathCardSpec {
   const alignment = firstAlignmentWithStatus(backendResult, "error");
   const correctionSteps =
@@ -666,6 +781,15 @@ function buildCorrectionCard({
             },
           ]
         : []),
+      { kind: "visual_explanation", spec: visualExplanation },
+      ...(functionVisualExplanation
+        ? [
+            {
+              kind: "function_visual_explanation" as const,
+              spec: functionVisualExplanation,
+            },
+          ]
+        : []),
       { kind: "thinking_graph", graph: thinkingGraph },
       ...socraticQuestions.map((text) => ({
         kind: "socratic_question" as const,
@@ -675,6 +799,11 @@ function buildCorrectionCard({
         kind: "correction_step" as const,
         text: String(text),
         evidenceIds: diagnosis.evidenceNodes.slice(0, 3).map((node) => node.id),
+      })),
+      { kind: "solution_comparison", comparison: solutionComparison },
+      ...solutionMethods.map((method) => ({
+        kind: "solution_method" as const,
+        method,
       })),
       ...diagnosis.variants.slice(0, 3).map((variant) => ({
         kind: "variant" as const,
@@ -774,4 +903,14 @@ function stringOrNull(value: unknown) {
   }
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function formatRecommendedNextAction(action: RecommendedNextAction) {
+  const labels: Record<RecommendedNextAction, string> = {
+    repair: "先完成订正，把第一断点讲清楚。",
+    variant: "进入同因变式，验证是否真的迁移。",
+    geometry_lab: "进入 Geometry Lab，在图上重建空间对象关系。",
+    review_plan: "先复核证据，再继续讲解和训练。",
+  };
+  return labels[action];
 }

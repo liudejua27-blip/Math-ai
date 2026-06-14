@@ -22,14 +22,14 @@ async function main() {
         "AI 数学思维导师",
         "Math-SEARAG",
         "新建诊断",
-        "今天要诊断哪道高中数学题？",
+        "今天想诊断哪一道高中数学题？",
       ],
       maxHorizontalOverflow: 0,
     });
     await assertPage(browser, `${baseUrl}/workbench-preview`, {
       name: "workbench-preview-mobile",
       viewport: { width: 390, height: 844 },
-      requiredText: ["AI 数学思维导师", "今天要诊断哪道高中数学题？"],
+      requiredText: ["AI 数学思维导师", "今天想诊断哪一道高中数学题？"],
       maxHorizontalOverflow: 0,
     });
     if (process.env.POSTGRES_URL) {
@@ -58,9 +58,9 @@ async function main() {
       name: "human-readable-reports",
       viewport: { width: 1280, height: 900 },
       requiredText: [
-        "家长/老师端学习报告",
+        "家长/教师端学习报告",
         "家长端",
-        "老师端",
+        "教师端",
         "下一步建议",
       ],
       maxHorizontalOverflow: 0,

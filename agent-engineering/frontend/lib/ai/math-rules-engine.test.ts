@@ -26,6 +26,39 @@ async function main() {
   assert.ok(
     result.correctionCard.blocks.some((block) => block.kind === "thinking_graph")
   );
+  assert.ok(result.solutionMethods.length >= 2);
+  assert.ok(result.solutionMethods.length <= 3);
+  assert.ok(result.solutionComparison.recommendedMethodId);
+  assert.ok(result.solutionComparison.fastestMethodId);
+  assert.ok(result.visualExplanation);
+  assert.ok(result.functionVisualExplanation);
+  assert.ok(
+    result.correctionCard.blocks.some(
+      (block) => block.kind === "visual_explanation"
+    )
+  );
+  assert.ok(
+    result.correctionCard.blocks.some(
+      (block) => block.kind === "function_visual_explanation"
+    )
+  );
+  assert.ok(result.recommendedNextAction);
+  assert.ok(result.studentReadableTrace?.length);
+  assert.ok(result.experienceQuality);
+  assert.ok(result.experienceQuality.overallScore > 0);
+  assert.ok(
+    result.experienceQuality.checks.some(
+      (check) => check.id === "solution_methods"
+    )
+  );
+  assert.ok(
+    result.correctionCard.blocks.some(
+      (block) => block.kind === "solution_comparison"
+    )
+  );
+  assert.ok(
+    result.correctionCard.blocks.some((block) => block.kind === "solution_method")
+  );
 
   const geometryResult = await runMathDiagnosisWorkflow({
     problemText:
@@ -43,7 +76,23 @@ async function main() {
         geometryResult.recommendedGeometryLabs.length > 0,
       "Solid geometry diagnosis should recommend Geometry Lab levels"
     );
+    assert.ok(
+      geometryResult.solutionMethods.some(
+        (method) => method.strategyType === "vector_geometry"
+      )
+    );
+    assert.equal(geometryResult.recommendedNextAction, "geometry_lab");
+    assert.ok(geometryResult.visualExplanation?.linkedGeometryLabLevelId);
   }
+
+  const missingSteps = await runMathDiagnosisWorkflow({
+    problemText: "已知函数 f(x)=x^2，求 f'(1)。",
+    studentSteps: "",
+    teachingStyle: "socratic",
+    visualMode: "html_card",
+  });
+  assert.ok("error" in missingSteps);
+  assert.ok(!("solutionMethods" in missingSteps));
 
   console.log(
     JSON.stringify(
@@ -56,6 +105,7 @@ async function main() {
         atoms: result.misconceptionAtoms.length,
         graphNodes: result.thinkingGraph.nodes.length,
         cardBlocks: result.correctionCard.blocks.length,
+        solutionMethods: result.solutionMethods.length,
         geometryLabs:
           "error" in geometryResult
             ? 0
