@@ -81,11 +81,13 @@ def recognize_draft(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     image_path = materialize_image(payload)
     lines, engine_reports = run_hybrid_ocr(image_path)
     if not lines:
-        unavailable = [report.detail for report in engine_reports if report.status in {"unavailable", "failed"}]
-        return {
-            "error": "draft_ocr_unavailable",
-            "message": "No OCR engine returned usable draft text. " + " ".join(unavailable[:2]),
-        }
+        return build_result(
+            lines=[],
+            source="unavailable",
+            warnings=build_engine_warnings(engine_reports),
+            engine_reports=[*engine_reports, *LAYOUT_ENGINE_REPORTS],
+            status="failed",
+        )
 
     return build_result(
         lines=dedupe_lines(lines),
@@ -218,7 +220,9 @@ def build_result(
     source: str,
     warnings: list[str],
     engine_reports: list[EngineReport] | None = None,
+    status: str | None = None,
 ) -> dict[str, Any]:
+    result_id = f"draft-ocr-{sha256('|'.join(line.text for line in lines).encode('utf-8')).hexdigest()[:12]}"
     line_items = [
         {
             "id": f"line-{index + 1}",
@@ -226,27 +230,35 @@ def build_result(
             "text": line.text,
             "confidence": clamp(line.confidence),
             "engine": line.engine,
+            "rawImageCrop": crop_ref(result_id, f"line-{index + 1}"),
             "box": line.box,
-            "formulaItems": formula_items_from_text(line.text, index + 1, line.confidence, line.engine, line.latex),
+            "formulaItems": formula_items_from_text(line.text, index + 1, line.confidence, line.engine, result_id, line.latex),
         }
         for index, line in enumerate(lines)
     ]
     blocks = build_page_blocks(line_items)
     low_confidence_items = collect_low_confidence_items(blocks)
     confidence = compute_average_confidence(line_items)
+    computed_status = "needs_confirmation" if confidence < LOW_CONFIDENCE_THRESHOLD or low_confidence_items else "completed"
     return {
-        "id": f"draft-ocr-{sha256('|'.join(item['text'] for item in line_items).encode('utf-8')).hexdigest()[:12]}",
+        "id": result_id,
         "source": source,
-        "status": "needs_confirmation" if confidence < LOW_CONFIDENCE_THRESHOLD or low_confidence_items else "completed",
+        "status": status or computed_status,
         "pageBlocks": blocks,
         "confidence": confidence,
         "engineReports": [asdict(report) for report in engine_reports or []],
         "lowConfidenceItems": low_confidence_items,
         "extractedProblemText": extract_problem_text(blocks),
         "extractedStudentSteps": extract_student_steps(blocks),
-        "requiresStudentConfirmation": confidence < LOW_CONFIDENCE_THRESHOLD or bool(low_confidence_items),
+        "requiresStudentConfirmation": status == "failed" or confidence < LOW_CONFIDENCE_THRESHOLD or bool(low_confidence_items),
         "confirmationPrompt": "请核对 OCR 识别出的题干、步骤和公式；低置信内容确认前不能进入自动诊断。",
         "warnings": warnings,
+        "dataFlywheel": {
+            "sampleId": result_id,
+            "rawCropCount": len(line_items) + sum(len(line.get("formulaItems", [])) for line in line_items),
+            "lowConfidenceCount": len(low_confidence_items),
+            "issueTags": ["draft_ocr", "function_sample"] if source != "unavailable" else ["draft_ocr_unavailable"],
+        },
     }
 
 
@@ -264,6 +276,7 @@ def build_page_blocks(line_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "order": index + 1,
                 "text": text,
                 "confidence": line["confidence"],
+                "rawImageCrop": crop_ref("page", f"block-{index + 1}"),
                 "box": line.get("box"),
                 "lineItems": [line],
             }
@@ -271,7 +284,7 @@ def build_page_blocks(line_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return blocks
 
 
-def formula_items_from_text(text: str, line_order: int, confidence: float, engine: str, latex: str | None = None) -> list[dict[str, Any]]:
+def formula_items_from_text(text: str, line_order: int, confidence: float, engine: str, result_id: str, latex: str | None = None) -> list[dict[str, Any]]:
     if not looks_like_formula(text):
         return []
     return [
@@ -281,6 +294,7 @@ def formula_items_from_text(text: str, line_order: int, confidence: float, engin
             "text": text,
             "confidence": clamp(confidence),
             "engine": engine,
+            "rawImageCrop": crop_ref(result_id, f"formula-{line_order}-1"),
         }
     ]
 
@@ -356,6 +370,10 @@ def extension_from_mime(mime_type: str) -> str:
     if mime_type == "image/webp":
         return ".webp"
     return ".png"
+
+
+def crop_ref(result_id: str, item_id: str) -> str:
+    return f"crop://draft-ocr/{result_id}/{item_id}"
 
 
 def clamp(value: float) -> float:

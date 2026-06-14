@@ -14,6 +14,11 @@ export type WorkbenchEventType =
   | "strict_gate_checked"
   | "verifier_trace_added"
   | "policy_decided"
+  | "solution_methods_ready"
+  | "visual_explanation_ready"
+  | "function_visual_explanation_ready"
+  | "next_action_ready"
+  | "experience_quality_checked"
   | "correction_card_ready"
   | "learner_memory_delta_ready"
   | "learner_recommendation_ready"
@@ -145,6 +150,67 @@ export function buildWorkbenchEventsFromDiagnosis(
       result.policyDecision.reason,
       { phase: "workflow" }
     ),
+    ...(result.solutionMethods?.length && result.solutionComparison
+      ? [
+          event(
+            "solution_methods_ready",
+            "多解法方案已生成",
+            "completed",
+            `${result.solutionMethods.length} 种解法，推荐 ${result.solutionComparison.recommendedMethodId}，最快 ${result.solutionComparison.fastestMethodId}`,
+            { phase: "workflow", replayable: true }
+          ),
+        ]
+      : []),
+    ...(result.visualExplanation
+      ? [
+          event(
+            "visual_explanation_ready",
+            "图上讲解已生成",
+            "completed",
+            result.visualExplanation.linkedGeometryLabLevelId
+              ? `绑定 Geometry Lab ${result.visualExplanation.linkedGeometryLabLevelId}`
+              : "生成条件高亮、错步高亮、正确路径和风险提醒",
+            { phase: "workflow", replayable: true }
+          ),
+        ]
+      : []),
+    ...(result.functionVisualExplanation
+      ? [
+          event(
+            "function_visual_explanation_ready",
+            "函数图上讲解已生成",
+            "completed",
+            `${result.functionVisualExplanation.title}：定义域、区间、关键点和风险提醒已就绪`,
+            { phase: "workflow", replayable: true }
+          ),
+        ]
+      : []),
+    ...(result.recommendedNextAction
+      ? [
+          event(
+            "next_action_ready",
+            "今日下一步已生成",
+            "completed",
+            result.recommendedNextAction,
+            { phase: "workflow", replayable: true }
+          ),
+        ]
+      : []),
+    ...(result.experienceQuality
+      ? [
+          event(
+            "experience_quality_checked",
+            "体验质量自检已完成",
+            result.experienceQuality.level === "blocked"
+              ? "blocked"
+              : result.experienceQuality.level === "needs_review"
+                ? "warn"
+                : "completed",
+            `${result.experienceQuality.overallScore}/100 · ${result.experienceQuality.summary}`,
+            { phase: "workflow", replayable: true }
+          ),
+        ]
+      : []),
     event(
       "correction_card_ready",
       "订正卡已生成",

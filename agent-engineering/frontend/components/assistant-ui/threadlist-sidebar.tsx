@@ -1,5 +1,6 @@
 import type * as React from "react";
-import { BrainCircuitIcon, GraduationCapIcon } from "lucide-react";
+import { BrainCircuitIcon, FlaskConicalIcon } from "lucide-react";
+import { ThreadList } from "@/components/assistant-ui/thread-list";
 import {
   Sidebar,
   SidebarContent,
@@ -10,7 +11,6 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { ThreadList } from "@/components/assistant-ui/thread-list";
 
 export function ThreadListSidebar({
   ...props
@@ -21,16 +21,17 @@ export function ThreadListSidebar({
         <div className="aui-sidebar-header-content flex items-center justify-between">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton size="lg" asChild>
-                <a
-                  href="/"
-                >
+              <SidebarMenuButton asChild size="lg">
+                <a href="/">
                   <div className="aui-sidebar-header-icon-wrapper bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
                     <BrainCircuitIcon className="aui-sidebar-header-icon size-4" />
                   </div>
                   <div className="aui-sidebar-header-heading me-6 flex flex-col gap-0.5 leading-none">
                     <span className="aui-sidebar-header-title font-semibold">
                       Math-SEARAG
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      数学思维导师
                     </span>
                   </div>
                 </a>
@@ -46,12 +47,10 @@ export function ThreadListSidebar({
       <SidebarFooter className="aui-sidebar-footer border-t">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <a
-                href="/geometry-lab"
-              >
+            <SidebarMenuButton asChild size="lg">
+              <a href="/geometry-lab">
                 <div className="aui-sidebar-footer-icon-wrapper bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <GraduationCapIcon className="aui-sidebar-footer-icon size-4" />
+                  <FlaskConicalIcon className="aui-sidebar-footer-icon size-4" />
                 </div>
                 <div className="aui-sidebar-footer-heading flex flex-col gap-0.5 leading-none">
                   <span className="aui-sidebar-footer-title font-semibold">

@@ -3,7 +3,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast as sonnerToast } from "sonner";
 import { cn } from "@/lib/utils";
-import { CheckCircleFillIcon, WarningIcon } from "./icons";
+import { CheckCircleFillIcon, WarningIcon } from "@/components/icons";
 
 const iconsByType: Record<"success" | "error", ReactNode> = {
   success: <CheckCircleFillIcon />,

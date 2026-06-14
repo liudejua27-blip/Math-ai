@@ -1,92 +1,39 @@
 "use client";
 
 import {
-  memo,
-  useCallback,
-  useRef,
-  useState,
-  type ComponentType,
-} from "react";
-import {
   AlertCircleIcon,
   CheckIcon,
   ChevronDownIcon,
+  ExternalLinkIcon,
   LoaderIcon,
+  PanelRightIcon,
+  RotateCcwIcon,
   XCircleIcon,
 } from "lucide-react";
 import {
-  useScrollLock,
+  memo,
+  useState,
+  type ComponentProps,
+  type ComponentType,
+  type ReactNode,
+} from "react";
+import {
   type ToolCallMessagePart,
+  type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
   type ToolCallMessagePartStatus,
-  type ToolCallMessagePartComponent,
 } from "@assistant-ui/react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-
-const ANIMATION_DURATION = 200;
-
-export type ToolFallbackRootProps = Omit<
-  React.ComponentProps<typeof Collapsible>,
-  "open" | "onOpenChange"
-> & {
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  defaultOpen?: boolean;
-};
-
-function ToolFallbackRoot({
-  className,
-  open: controlledOpen,
-  onOpenChange: controlledOnOpenChange,
-  defaultOpen = false,
-  children,
-  ...props
-}: ToolFallbackRootProps) {
-  const collapsibleRef = useRef<HTMLDivElement>(null);
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
-  const lockScroll = useScrollLock(collapsibleRef, ANIMATION_DURATION);
-
-  const isControlled = controlledOpen !== undefined;
-  const isOpen = isControlled ? controlledOpen : uncontrolledOpen;
-
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      lockScroll();
-      if (!isControlled) {
-        setUncontrolledOpen(open);
-      }
-      controlledOnOpenChange?.(open);
-    },
-    [lockScroll, isControlled, controlledOnOpenChange],
-  );
-
-  return (
-    <Collapsible
-      ref={collapsibleRef}
-      data-slot="tool-fallback-root"
-      open={isOpen}
-      onOpenChange={handleOpenChange}
-      className={cn(
-        "aui-tool-fallback-root group/tool-fallback-root w-full",
-        className,
-      )}
-      style={
-        {
-          "--animation-duration": `${ANIMATION_DURATION}ms`,
-        } as React.CSSProperties
-      }
-      {...props}
-    >
-      {children}
-    </Collapsible>
-  );
-}
+import type {
+  MathDiagnosisToolResult,
+  RecommendedNextAction,
+} from "@/lib/ai/math-diagnosis-types";
+import { cn } from "@/lib/utils";
 
 type ToolStatus = ToolCallMessagePartStatus["type"];
 
@@ -97,12 +44,49 @@ const statusIconMap: Record<ToolStatus, React.ElementType> = {
   "requires-action": AlertCircleIcon,
 };
 
+function isDiagnosisResult(value: unknown): value is MathDiagnosisToolResult {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      ("firstWrongStep" in value || "misconceptionAtoms" in value || "error" in value)
+  );
+}
+
+function openMathAgentDrawer(
+  drawer: "inspector" | "learner-memory" | "history" | "geometry-lab",
+  result?: MathDiagnosisToolResult
+) {
+  window.dispatchEvent(
+    new CustomEvent("math-agent-open-drawer", {
+      detail: { drawer, result },
+    })
+  );
+}
+
+function ToolFallbackRoot({
+  className,
+  children,
+  defaultOpen = false,
+}: ComponentProps<typeof Collapsible> & {
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <Collapsible
+      className={cn("aui-tool-fallback-root w-full", className)}
+      onOpenChange={setOpen}
+      open={open}
+    >
+      {children}
+    </Collapsible>
+  );
+}
+
 function ToolFallbackTrigger({
   toolName,
   status,
-  className,
-  ...props
-}: React.ComponentProps<typeof CollapsibleTrigger> & {
+}: {
   toolName: string;
   status?: ToolCallMessagePartStatus;
 }) {
@@ -110,144 +94,70 @@ function ToolFallbackTrigger({
   const isRunning = statusType === "running";
   const isCancelled =
     status?.type === "incomplete" && status.reason === "cancelled";
-
   const Icon = statusIconMap[statusType] as ComponentType<{
     className?: string;
-    "data-slot"?: string;
   }>;
   const label = isCancelled ? "工具已取消" : "调用工具";
 
   return (
-    <CollapsibleTrigger
-      data-slot="tool-fallback-trigger"
-      className={cn(
-        "aui-tool-fallback-trigger group/trigger text-muted-foreground hover:text-foreground flex w-fit items-center gap-2 py-1 text-sm transition-colors",
-        className,
-      )}
-      {...props}
-    >
+    <CollapsibleTrigger className="aui-tool-fallback-trigger group/trigger text-muted-foreground hover:text-foreground flex w-fit items-center gap-2 py-1 text-sm transition-colors">
       <Icon
-        data-slot="tool-fallback-trigger-icon"
         className={cn(
           "aui-tool-fallback-trigger-icon size-4 shrink-0",
-          isCancelled && "text-muted-foreground",
-          isRunning && "animate-spin",
+          isRunning && "animate-spin"
         )}
       />
-      <span
-        data-slot="tool-fallback-trigger-label"
-        className={cn(
-          "aui-tool-fallback-trigger-label-wrapper relative inline-block text-start leading-none",
-          isCancelled && "text-muted-foreground line-through",
-        )}
-      >
-        <span>
-          {label}: <b>{toolName}</b>
-        </span>
-        {isRunning && (
-          <span
-            aria-hidden
-            data-slot="tool-fallback-trigger-shimmer"
-            className="aui-tool-fallback-trigger-shimmer shimmer pointer-events-none absolute inset-0 motion-reduce:animate-none"
-          >
-            {label}: <b>{toolName}</b>
-          </span>
-        )}
+      <span className={cn(isCancelled && "line-through")}>
+        {label}: <b>{toolName}</b>
       </span>
-      <ChevronDownIcon
-        data-slot="tool-fallback-trigger-chevron"
-        className={cn(
-          "aui-tool-fallback-trigger-chevron size-4 shrink-0",
-          "transition-transform duration-(--animation-duration) ease-out",
-          "group-data-[state=closed]/trigger:-rotate-90",
-          "group-data-[state=open]/trigger:rotate-0",
-        )}
-      />
+      <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=closed]/trigger:-rotate-90" />
     </CollapsibleTrigger>
   );
 }
 
 function ToolFallbackContent({
-  className,
   children,
-  ...props
-}: React.ComponentProps<typeof CollapsibleContent>) {
+}: {
+  children: ReactNode;
+}) {
   return (
-    <CollapsibleContent
-      data-slot="tool-fallback-content"
-      className={cn(
-        "aui-tool-fallback-content relative overflow-hidden text-sm outline-none",
-        "group/collapsible-content ease-out",
-        "data-[state=closed]:animate-collapsible-up",
-        "data-[state=open]:animate-collapsible-down",
-        "data-[state=closed]:fill-mode-forwards",
-        "data-[state=closed]:pointer-events-none",
-        "data-[state=open]:duration-(--animation-duration)",
-        "data-[state=closed]:duration-(--animation-duration)",
-        className,
-      )}
-      {...props}
-    >
+    <CollapsibleContent className="aui-tool-fallback-content overflow-hidden text-sm data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down">
       <div className="flex flex-col gap-2 ps-6 pt-1 pb-2">{children}</div>
     </CollapsibleContent>
   );
 }
 
-function ToolFallbackArgs({
-  argsText,
-  className,
-  ...props
-}: React.ComponentProps<"div"> & {
-  argsText?: string;
-}) {
-  if (!argsText) return null;
+function ToolFallbackArgs({ argsText }: { argsText?: string }) {
+  if (!argsText) {
+    return null;
+  }
 
   return (
-    <div
-      data-slot="tool-fallback-args"
-      className={cn("aui-tool-fallback-args", className)}
-      {...props}
-    >
-      <pre className="aui-tool-fallback-args-value bg-muted/50 text-muted-foreground rounded-md p-2.5 text-xs whitespace-pre-wrap">
-        {argsText}
-      </pre>
-    </div>
+    <pre className="aui-tool-fallback-args-value bg-muted/50 text-muted-foreground rounded-md p-2.5 text-xs whitespace-pre-wrap">
+      {argsText}
+    </pre>
   );
 }
 
-function ToolFallbackResult({
-  result,
-  className,
-  ...props
-}: React.ComponentProps<"div"> & {
-  result?: unknown;
-}) {
-  if (result === undefined) return null;
+function ToolFallbackResult({ result }: { result?: unknown }) {
+  if (result === undefined) {
+    return null;
+  }
 
   return (
-    <div
-      data-slot="tool-fallback-result"
-      className={cn("aui-tool-fallback-result", className)}
-      {...props}
-    >
-      <p className="aui-tool-fallback-result-header text-muted-foreground text-xs font-medium">
-        结果：
-      </p>
-      <pre className="aui-tool-fallback-result-content bg-muted/50 text-muted-foreground mt-1 rounded-md p-2.5 text-xs whitespace-pre-wrap">
+    <div>
+      <p className="text-muted-foreground text-xs font-medium">结果：</p>
+      <pre className="bg-muted/50 text-muted-foreground mt-1 rounded-md p-2.5 text-xs whitespace-pre-wrap">
         {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
       </pre>
     </div>
   );
 }
 
-function ToolFallbackError({
-  status,
-  className,
-  ...props
-}: React.ComponentProps<"div"> & {
-  status?: ToolCallMessagePartStatus;
-}) {
-  if (status?.type !== "incomplete") return null;
+function ToolFallbackError({ status }: { status?: ToolCallMessagePartStatus }) {
+  if (status?.type !== "incomplete") {
+    return null;
+  }
 
   const error = status.error;
   const errorText = error
@@ -256,23 +166,16 @@ function ToolFallbackError({
       : JSON.stringify(error)
     : null;
 
-  if (!errorText) return null;
-
-  const isCancelled = status.reason === "cancelled";
-  const headerText = isCancelled ? "取消原因：" : "错误：";
+  if (!errorText) {
+    return null;
+  }
 
   return (
-    <div
-      data-slot="tool-fallback-error"
-      className={cn("aui-tool-fallback-error", className)}
-      {...props}
-    >
-      <p className="aui-tool-fallback-error-header text-muted-foreground font-semibold">
-        {headerText}
+    <div className="text-muted-foreground">
+      <p className="font-semibold">
+        {status.reason === "cancelled" ? "取消原因：" : "错误："}
       </p>
-      <p className="aui-tool-fallback-error-reason text-muted-foreground">
-        {errorText}
-      </p>
+      <p>{errorText}</p>
     </div>
   );
 }
@@ -281,31 +184,28 @@ const APPROVED_RESULT = "Approved by user";
 const DENIED_RESULT = "User denied tool execution";
 
 function ToolFallbackApproval({
-  className,
   addResult,
   resume,
   interrupt,
   approval,
   respondToApproval,
-  ...props
-}: React.ComponentProps<"div"> &
-  Partial<
-    Pick<ToolCallMessagePartProps, "addResult" | "resume" | "respondToApproval">
-  > & {
-    interrupt?: ToolCallMessagePart["interrupt"];
-    approval?: ToolCallMessagePart["approval"];
-  }) {
+}: Partial<
+  Pick<ToolCallMessagePartProps, "addResult" | "resume" | "respondToApproval">
+> & {
+  interrupt?: ToolCallMessagePart["interrupt"];
+  approval?: ToolCallMessagePart["approval"];
+}) {
   const [submitted, setSubmitted] = useState(false);
 
-  if (approval != null && approval.approved !== undefined) return null;
+  if (approval != null && approval.approved !== undefined) {
+    return null;
+  }
 
   const respond = (approved: boolean) => {
-    if (submitted) return;
-    if (
-      approval != null &&
-      approval.approved === undefined &&
-      respondToApproval
-    ) {
+    if (submitted) {
+      return;
+    }
+    if (approval != null && approval.approved === undefined && respondToApproval) {
       respondToApproval({ approved });
     } else if (interrupt) {
       resume?.({ approved });
@@ -316,27 +216,187 @@ function ToolFallbackApproval({
   };
 
   return (
-    <div
-      data-slot="tool-fallback-approval"
-      className={cn(
-        "aui-tool-fallback-approval flex items-center gap-2 pt-1",
-        className,
-      )}
-      {...props}
-    >
-      <Button size="sm" onClick={() => respond(true)} disabled={submitted}>
+    <div className="aui-tool-fallback-approval flex items-center gap-2 pt-1">
+      <Button disabled={submitted} onClick={() => respond(true)} size="sm">
         允许
       </Button>
       <Button
+        disabled={submitted}
+        onClick={() => respond(false)}
         size="sm"
         variant="outline"
-        onClick={() => respond(false)}
-        disabled={submitted}
       >
         拒绝
       </Button>
     </div>
   );
+}
+
+function MathDiagnosisToolCard({
+  result,
+}: {
+  result: MathDiagnosisToolResult;
+}) {
+  if ("error" in result) {
+    return (
+      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm">
+        <div className="font-medium text-destructive">诊断暂不可用</div>
+        <p className="mt-1 text-muted-foreground">{result.message}</p>
+      </div>
+    );
+  }
+
+  const atoms = result.misconceptionAtoms?.slice(0, 3) ?? [];
+  const traces = result.verifierTraces?.slice(0, 3) ?? [];
+  const solutionMethods = result.solutionMethods ?? [];
+  const solutionComparison = result.solutionComparison;
+  const recommendedMethod = solutionMethods.find(
+    (method) => method.id === solutionComparison?.recommendedMethodId
+  );
+  const fastestMethod = solutionMethods.find(
+    (method) => method.id === solutionComparison?.fastestMethodId
+  );
+  const nextActionLabel = formatNextAction(result.recommendedNextAction);
+  const quality = result.experienceQuality;
+
+  return (
+    <div className="rounded-xl border bg-card p-3 text-sm shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-semibold">Math-SEARAG 诊断完成</div>
+          <p className="mt-1 text-muted-foreground text-xs">
+            第一错步、错因原子、验证链和订正路径已经生成。
+          </p>
+        </div>
+        <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground text-xs">
+          confidence {Math.round((result.confidence ?? 0) * 100)}%
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        <div className="rounded-lg bg-muted/45 p-2">
+          <div className="text-muted-foreground text-xs">第一错步</div>
+          <div className="mt-1 line-clamp-2">
+            {result.firstWrongStep ?? "需要学生补充步骤后才能判断。"}
+          </div>
+        </div>
+        {atoms.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {atoms.map((atom) => (
+              <span
+                className="rounded-full border px-2 py-1 text-muted-foreground text-xs"
+                key={atom.id}
+              >
+                {atom.id} {atom.label}
+              </span>
+            ))}
+          </div>
+        )}
+        {traces.length > 0 && (
+          <div className="text-muted-foreground text-xs">
+            验证链：{traces.map((trace) => `${trace.verifier}:${trace.status}`).join(" / ")}
+          </div>
+        )}
+        {solutionComparison && (
+        <div className="grid gap-2 rounded-lg border border-cyan-200/70 bg-cyan-50/70 p-2 text-cyan-950 text-xs dark:border-cyan-900/70 dark:bg-cyan-950/25 dark:text-cyan-50">
+          <div className="font-medium">推荐解法 / 最快解法</div>
+          <div>
+            推荐解法：
+            {recommendedMethod
+              ? `${recommendedMethod.title}，约 ${recommendedMethod.estimatedMinutes} 分钟`
+              : solutionComparison.recommendedMethodId}
+          </div>
+          <div>
+            最快解法：
+            {fastestMethod
+              ? `${fastestMethod.title}，约 ${fastestMethod.estimatedMinutes} 分钟`
+              : solutionComparison.fastestMethodId}
+          </div>
+          <div className="text-cyan-950/75 dark:text-cyan-50/75">
+            {solutionComparison.reason}
+          </div>
+        </div>
+        )}
+        {quality && (
+          <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/70 p-2 text-emerald-950 text-xs dark:border-emerald-900/70 dark:bg-emerald-950/25 dark:text-emerald-50">
+            <div className="font-medium">
+              体验质量自检：{quality.overallScore}/100
+            </div>
+            <div className="mt-1">{quality.summary}</div>
+          </div>
+        )}
+        {(result.visualExplanation ||
+          result.functionVisualExplanation ||
+          result.recommendedNextAction) && (
+          <div className="rounded-lg border border-violet-200/70 bg-violet-50/70 p-2 text-violet-950 text-xs dark:border-violet-900/70 dark:bg-violet-950/25 dark:text-violet-50">
+            <div className="font-medium">图上讲解 / 今日下一步</div>
+            {result.visualExplanation && (
+              <div className="mt-1">
+            已生成条件高亮、错步高亮、正确路径和风险提醒。
+          </div>
+        )}
+            {result.functionVisualExplanation && (
+              <div className="mt-1">
+                函数图上讲解已生成：定义域、区间、关键点和风险提醒。
+              </div>
+            )}
+        {nextActionLabel && <div className="mt-1">{nextActionLabel}</div>}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          className="h-8 rounded-full"
+          onClick={() => openMathAgentDrawer("inspector", result)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <PanelRightIcon className="size-4" />
+          打开 Inspector
+        </Button>
+        <Button className="h-8 rounded-full" size="sm" type="button" variant="ghost">
+          <RotateCcwIcon className="size-4" />
+          我已订正
+        </Button>
+        {result.recommendedGeometryLabs?.length ? (
+          <Button
+            className="h-8 rounded-full"
+            onClick={() => openMathAgentDrawer("geometry-lab", result)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <ExternalLinkIcon className="size-4" />
+            Geometry Lab
+          </Button>
+        ) : null}
+        {(result.visualExplanation || result.functionVisualExplanation) && (
+          <Button
+            className="h-8 rounded-full"
+            onClick={() => openMathAgentDrawer("inspector", result)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <ExternalLinkIcon className="size-4" />
+            图上讲解
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatNextAction(action?: RecommendedNextAction) {
+  const labels: Record<RecommendedNextAction, string> = {
+    repair: "今日下一步：先订正第一断点。",
+    variant: "今日下一步：进入同因变式训练。",
+    geometry_lab: "今日下一步：进入 Geometry Lab 图上重建。",
+    review_plan: "今日下一步：先复核证据，避免误判。",
+  };
+  return action ? labels[action] : null;
 }
 
 const ToolFallbackImpl: ToolCallMessagePartComponent = ({
@@ -350,44 +410,35 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({
   approval,
   respondToApproval,
 }) => {
-  const isCancelled =
-    status?.type === "incomplete" && status.reason === "cancelled";
   const isRequiresAction = status?.type === "requires-action";
 
-  const [open, setOpen] = useState(isRequiresAction);
-  const [prevRequiresAction, setPrevRequiresAction] =
-    useState(isRequiresAction);
-  if (isRequiresAction !== prevRequiresAction) {
-    setPrevRequiresAction(isRequiresAction);
-    if (isRequiresAction) setOpen(true);
+  if (toolName === "diagnoseMathThinking" && isDiagnosisResult(result)) {
+    return <MathDiagnosisToolCard result={result} />;
   }
 
   return (
-    <ToolFallbackRoot open={open} onOpenChange={setOpen}>
-      <ToolFallbackTrigger toolName={toolName} status={status} />
+    <ToolFallbackRoot defaultOpen={isRequiresAction}>
+      <ToolFallbackTrigger status={status} toolName={toolName} />
       <ToolFallbackContent>
         <ToolFallbackError status={status} />
-        <ToolFallbackArgs
-          argsText={argsText}
-          className={cn(isCancelled && "opacity-60")}
-        />
+        <ToolFallbackArgs argsText={argsText} />
         {isRequiresAction && (
           <ToolFallbackApproval
             addResult={addResult}
-            resume={resume}
-            interrupt={interrupt}
             approval={approval}
+            interrupt={interrupt}
             respondToApproval={respondToApproval}
+            resume={resume}
           />
         )}
-        {!isCancelled && <ToolFallbackResult result={result} />}
+        {status?.type !== "incomplete" && <ToolFallbackResult result={result} />}
       </ToolFallbackContent>
     </ToolFallbackRoot>
   );
 };
 
 const ToolFallback = memo(
-  ToolFallbackImpl,
+  ToolFallbackImpl
 ) as unknown as ToolCallMessagePartComponent & {
   Root: typeof ToolFallbackRoot;
   Trigger: typeof ToolFallbackTrigger;

@@ -51,6 +51,33 @@ export type GeometrySceneSpec = {
     evidenceIds: string[];
     misconceptionIfWrong: string[];
   }>;
+  animationSteps?: Array<{
+    id: string;
+    label: string;
+    action:
+      | "condition_highlight"
+      | "draw_auxiliary"
+      | "rotate_to_view"
+      | "wrong_object_flash"
+      | "correct_object_lock";
+    refs: string[];
+    durationMs?: number;
+    cameraPresetId?: string;
+    evidenceIds?: string[];
+  }>;
+  wrongObjectHighlights?: Array<{
+    id: string;
+    refs: string[];
+    message: string;
+    atomIds: string[];
+  }>;
+  cameraPresets?: Array<{
+    id: string;
+    label: string;
+    position: [number, number, number];
+    target: [number, number, number];
+  }>;
+  linkedEvidenceIds?: string[];
   timeline: Array<{
     id: string;
     action:

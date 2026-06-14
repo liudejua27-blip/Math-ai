@@ -78,6 +78,9 @@ function normalizeDraftOCRResult(payload: unknown): DraftOCRResult | DraftOCRErr
       error: error.error ?? "draft_ocr_unavailable",
       status: error.status,
       message: error.message ?? "Draft OCR failed.",
+      engineReports: Array.isArray(error.engineReports)
+        ? error.engineReports
+        : [],
     };
   }
 
@@ -103,6 +106,17 @@ function normalizeDraftOCRResult(payload: unknown): DraftOCRResult | DraftOCRErr
     lowConfidenceItems,
     extractedProblemText: String(result.extractedProblemText ?? ""),
     extractedStudentSteps: String(result.extractedStudentSteps ?? ""),
+    confirmedProblemText: result.confirmedProblemText,
+    confirmedStudentSteps: result.confirmedStudentSteps,
+    confirmedFormulaLatex: Array.isArray(result.confirmedFormulaLatex)
+      ? result.confirmedFormulaLatex
+      : [],
+    studentEdits: Array.isArray(result.studentEdits) ? result.studentEdits : [],
+    ocrAnnotations: Array.isArray(result.ocrAnnotations)
+      ? result.ocrAnnotations
+      : [],
+    confirmedFirstWrongStep: result.confirmedFirstWrongStep,
+    readyForDiagnosis: result.readyForDiagnosis ?? !requiresStudentConfirmation,
     requiresStudentConfirmation,
     confirmationPrompt:
       result.confirmationPrompt ??
@@ -141,9 +155,16 @@ function fallbackUnavailable(
     ],
     extractedProblemText: "",
     extractedStudentSteps: "",
+    confirmedProblemText: "",
+    confirmedStudentSteps: "",
+    confirmedFormulaLatex: [],
+    studentEdits: [],
+    ocrAnnotations: [],
+    confirmedFirstWrongStep: "",
+    readyForDiagnosis: false,
     requiresStudentConfirmation: true,
     confirmationPrompt:
-      "草稿 OCR 后端当前不可用。请手动输入题干和学生步骤后再诊断。",
+      "草稿纸 OCR 后端当前不可用。请手动输入题干和学生步骤后再诊断。",
     warnings: ["PaddleOCR backend unavailable."],
   };
 }

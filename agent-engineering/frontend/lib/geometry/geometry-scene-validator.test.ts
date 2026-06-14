@@ -60,4 +60,41 @@ assert.ok(
   )
 );
 
+const animationMissingRef = structuredClone(scene);
+animationMissingRef.animationSteps = [
+  {
+    id: "anim-missing",
+    label: "Missing ref",
+    action: "condition_highlight",
+    refs: ["missing-animation-ref"],
+  },
+];
+const animationMissingRefValidation =
+  validateGeometrySceneSpec(animationMissingRef);
+assert.equal(animationMissingRefValidation.valid, false);
+assert.ok(
+  animationMissingRefValidation.errors.some((error) =>
+    error.includes("Animation step anim-missing references missing object")
+  )
+);
+
+const animationMissingCamera = structuredClone(scene);
+animationMissingCamera.animationSteps = [
+  {
+    id: "anim-camera",
+    label: "Missing camera",
+    action: "rotate_to_view",
+    refs: ["A1"],
+    cameraPresetId: "missing-camera",
+  },
+];
+const animationMissingCameraValidation =
+  validateGeometrySceneSpec(animationMissingCamera);
+assert.equal(animationMissingCameraValidation.valid, false);
+assert.ok(
+  animationMissingCameraValidation.errors.some((error) =>
+    error.includes("references missing camera preset")
+  )
+);
+
 console.log("geometry-scene-validator tests passed");

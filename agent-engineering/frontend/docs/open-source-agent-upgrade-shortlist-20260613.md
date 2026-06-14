@@ -11,6 +11,7 @@
 | LaTeX-OCR / pix2tex | 图片公式转 LaTeX 能力强，适合作为公式 crop 的专门识别器。 | 给每个 formulaItem 生成 LaTeX candidate，学生确认后再进入 Step Alignment。 |
 | OpenR | process supervision、step-aware verifier 思路强。 | 已改写成本地 `process-supervision-calibration.ts`：保留多个首错候选，按 margin、OCR 噪声、条件遗漏、等价变形信号校准置信度。 |
 | langchain-ai/agent-chat-ui | 工具调用、thread state、interrupt、review/resume、artifact side panel 的交互思路成熟。 | 已适配为 assistant-ui 风格 `AgentProcessRibbon`：展示 Step Alignment、Tool Calls、VerifierTrace、Review/Resume，但不展示模型隐藏思维链。 |
+| OpenR / Safe / LeanAgent / agent-chat-ui | 多候选排序、claim-level verification、可观察工具结果。 | 已改写为 `solution-method-planner.ts`：每题诊断后输出 2-3 种可检查解法，并标注推荐解法、最快解法、风险点和验证重点。 |
 
 ## P1：作为强能力升级
 
@@ -36,6 +37,8 @@
   - 借鉴 OpenR 的 process supervision 思路，改写为本地首错候选校准器。
 - `lib/ai/step-verifier-engine.ts`
   - 已接入 process-supervision 校准结果，不再只依赖单一 strict gate 分数。
+- `lib/ai/solution-method-planner.ts`
+  - 借鉴 OpenR 的候选排序、Safe/LeanAgent 的 claim-level 验证纪律、agent-chat-ui 的工具结果可观察性，生成推荐解法和最快解法。
 - `components/assistant-ui/agent-process-ribbon.tsx`
   - 借鉴 agent-chat-ui 的过程可观察性，以 assistant-ui 风格展示 agent 运行阶段。
 

@@ -78,8 +78,34 @@ class ServerApiTests(unittest.TestCase):
         result = json.loads(body)
         self.assertEqual(response.status, 200)
         self.assertTrue(result["pageBlocks"])
+        self.assertIn("rawImageCrop", result["pageBlocks"][0])
         self.assertIn("lineItems", result["pageBlocks"][0])
+        self.assertIn("rawImageCrop", result["pageBlocks"][0]["lineItems"][0])
         self.assertIn("formulaItems", result["pageBlocks"][0]["lineItems"][0])
+        self.assertTrue(result["dataFlywheel"]["rawCropCount"] > 0)
+        self.assertTrue(result["requiresStudentConfirmation"])
+
+    def test_draft_ocr_unavailable_returns_engine_reports(self):
+        os.environ.pop("MATH_DRAFT_OCR_MOCK", None)
+        os.environ["MATH_DRAFT_OCR_ENGINES"] = "missing_engine"
+        try:
+            connection = HTTPConnection("127.0.0.1", self.port, timeout=5)
+            connection.request(
+                "POST",
+                "/api/draft-ocr",
+                body=json.dumps({"image_base64": "ZmFrZQ=="}, ensure_ascii=False).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            response = connection.getresponse()
+            body = response.read().decode("utf-8")
+            connection.close()
+        finally:
+            os.environ.pop("MATH_DRAFT_OCR_ENGINES", None)
+
+        result = json.loads(body)
+        self.assertEqual(response.status, 200)
+        self.assertEqual(result["status"], "failed")
+        self.assertTrue(result["engineReports"])
         self.assertTrue(result["requiresStudentConfirmation"])
 
 

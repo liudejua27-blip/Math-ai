@@ -49,9 +49,7 @@ export function GeometryAttemptSummary({
           <button
             className={cn(
               "rounded-md px-3 py-2 font-medium text-sm transition",
-              passed
-                ? "ms-button-primary"
-                : "bg-muted text-muted-foreground"
+              passed ? "ms-button-primary" : "bg-muted text-muted-foreground"
             )}
             disabled={!passed}
             onClick={onCompleteCorrection}

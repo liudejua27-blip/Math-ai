@@ -80,11 +80,10 @@ export function HumanReadableReportPage() {
         <header>
           <div className="text-muted-foreground text-sm">Math-SEARAG</div>
           <h1 className="mt-2 font-semibold text-2xl">
-            家长/老师端学习报告
+            家长/教师端学习报告
           </h1>
           <p className="mt-2 max-w-3xl text-muted-foreground text-sm leading-6">
-            这里展示学习结论、孩子最近的变化和下一步建议。报告面向真实沟通场景，
-            不展示工程诊断过程。
+            这里展示学习结论、孩子最近的变化和下一步建议。报告面向真实沟通场景，不展示工程诊断过程。
           </p>
         </header>
         <div className="grid gap-4 lg:grid-cols-2">
@@ -100,7 +99,7 @@ function ReportCard({ report }: { report: AudienceLearningReport }) {
   return (
     <section className="ms-card border p-5">
       <div className="text-muted-foreground text-xs">
-        {report.audience === "parent" ? "家长端" : "老师端"}
+        {report.audience === "parent" ? "家长端" : "教师端"}
       </div>
       <h2 className="mt-2 font-semibold text-xl">{report.title}</h2>
       <p className="mt-3 text-sm leading-6">{report.summary}</p>

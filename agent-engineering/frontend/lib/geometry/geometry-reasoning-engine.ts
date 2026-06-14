@@ -126,37 +126,42 @@ export function buildGeometryConstraintSystem(
     }
   }
 
-  for (const edge of scene.edges) {
-    for (const face of scene.faces) {
-      if (face.vertices.includes(edge.from) && face.vertices.includes(edge.to)) {
+  for (const edgeItem of scene.edges) {
+    for (const faceItem of scene.faces) {
+      if (
+        faceItem.vertices.includes(edgeItem.from) &&
+        faceItem.vertices.includes(edgeItem.to)
+      ) {
         constraints.push({
-          id: `incident:${edge.id}:${face.id}`,
+          id: `incident:${edgeItem.id}:${faceItem.id}`,
           type: "incident",
-          refs: [edge.id, face.id],
+          refs: [edgeItem.id, faceItem.id],
           confidence: 1,
-          reason: `${edge.id} 的两个端点都在平面 ${face.id} 上。`,
+          reason: `${edgeItem.id} 的两个端点都在平面 ${faceItem.id} 上。`,
         });
       }
     }
   }
 
-  for (const edge of scene.edges.filter((item) => item.kind === "projection")) {
+  for (const edgeItem of scene.edges.filter(
+    (item) => item.kind === "projection"
+  )) {
     constraints.push({
-      id: `projection:${edge.id}`,
+      id: `projection:${edgeItem.id}`,
       type: "projection",
-      refs: [edge.id],
+      refs: [edgeItem.id],
       confidence: 0.9,
-      reason: `${edge.id} 被 scene spec 标记为投影线。`,
+      reason: `${edgeItem.id} 被 scene spec 标记为投影线。`,
     });
   }
 
-  for (const face of scene.faces.filter((item) => item.kind === "section")) {
+  for (const faceItem of scene.faces.filter((item) => item.kind === "section")) {
     constraints.push({
-      id: `section:${face.id}`,
+      id: `section:${faceItem.id}`,
       type: "section",
-      refs: [face.id],
+      refs: [faceItem.id],
       confidence: 0.92,
-      reason: `${face.id} 被 scene spec 标记为截面。`,
+      reason: `${faceItem.id} 被 scene spec 标记为截面。`,
     });
   }
 
@@ -211,12 +216,12 @@ export function evaluateGeometrySelection({
     suggestedAuxiliaries,
   });
   const stepAlignmentEvidence = solvers.flatMap((solver) =>
-    solver.stepAlignmentEvidence.map((claim) => ({
-      ...claim,
+    solver.stepAlignmentEvidence.map((claimItem) => ({
+      ...claimItem,
       status:
-        claim.refs.some((refId) => selected.has(refId)) ||
+        claimItem.refs.some((refId) => selected.has(refId)) ||
         solvedTargetIds.includes(solver.targetId)
-          ? claim.status
+          ? claimItem.status
           : "warn",
     }))
   );
@@ -250,7 +255,7 @@ export function buildGeometryVisualMathBenchmarkStandards(): GeometryVisualMathB
     {
       source: "MATH-Vision",
       borrowedIdea:
-        "按数学学科和难度分桶，避免只在简单几何图上看起来很强。",
+        "按数学学科和难度分层，避免只在简单几何图上看起来很强。",
       localMetric: "geometry_solver_accuracy_by_scene_type",
     },
     {
@@ -302,12 +307,16 @@ function solveGeometryTarget(
       ],
       reasoningTrace: [
         "确认二面角的公共棱。",
-        "过公共棱上的点作两个面内分别垂直于公共棱的线。",
+        "过公共棱上的点，分别在两个面内作垂直于公共棱的线。",
         "两条垂线所在的截面就是观察二面角的辅助截面。",
         "二面角转化为该截面内的平面角。",
       ],
       stepAlignmentEvidence: [
-        claim(target.id, "二面角需要构造垂直于公共棱的辅助截面。", ["POM", "PM", "OM"]),
+        claim(target.id, "二面角需要构造垂直于公共棱的辅助截面。", [
+          "POM",
+          "PM",
+          "OM",
+        ]),
       ],
     };
   }
@@ -325,12 +334,16 @@ function solveGeometryTarget(
       ],
       reasoningTrace: [
         "确认三个已知点。",
-        "在同一已知平面内连接可连接的两点。",
+        "在同一个已知平面内连接可连接的两点。",
         "利用平行面上的平行交线补全截面。",
         "检查截面是否经过所有给定点。",
       ],
       stepAlignmentEvidence: [
-        claim(target.id, "截面构造必须由共面点和交线推出。", ["ABCDiag", "AC", "A1C1"]),
+        claim(target.id, "截面构造必须由共面点和交线推出。", [
+          "ABCDiag",
+          "AC",
+          "A1C1",
+        ]),
       ],
     };
   }
@@ -345,7 +358,11 @@ function solveGeometryTarget(
     ),
     reasoningTrace: ["选择目标对象。", "说明它与题目条件之间的几何关系。"],
     stepAlignmentEvidence: [
-      claim(target.id, "目标对象需要和题目条件形成可验证的几何关系。", target.correctRefs),
+      claim(
+        target.id,
+        "目标对象需要和题目条件形成可验证的几何关系。",
+        target.correctRefs
+      ),
     ],
   };
 }
@@ -385,10 +402,10 @@ function classifyEdgeRelation(
 
 function edgeVector(
   scene: GeometrySceneSpec,
-  edge: GeometrySceneSpec["edges"][number]
+  edgeItem: GeometrySceneSpec["edges"][number]
 ): Vec3 | null {
-  const from = scene.vertices.find((vertex) => vertex.id === edge.from);
-  const to = scene.vertices.find((vertex) => vertex.id === edge.to);
+  const from = scene.vertices.find((vertex) => vertex.id === edgeItem.from);
+  const to = scene.vertices.find((vertex) => vertex.id === edgeItem.to);
   if (!from || !to) {
     return null;
   }

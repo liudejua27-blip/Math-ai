@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { suggestions } from "@/lib/constants";
-import { SparklesIcon } from "./icons";
+import { SparklesIcon } from "@/components/icons";
 
 export function Preview() {
   const router = useRouter();

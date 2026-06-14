@@ -1,6 +1,6 @@
 import type { InferUITool, UIMessage } from "ai";
 import { z } from "zod";
-import type { ArtifactKind } from "@/components/chat/artifact";
+import type { ArtifactKind } from "@/lib/artifacts/types";
 import type { createDocument } from "./ai/tools/create-document";
 import type { diagnoseMathThinking } from "./ai/tools/diagnose-math-thinking";
 import type { getWeather } from "./ai/tools/get-weather";

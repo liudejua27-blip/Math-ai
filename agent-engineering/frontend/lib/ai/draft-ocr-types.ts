@@ -73,6 +73,24 @@ export type DraftOCRResult = {
   }>;
   extractedProblemText: string;
   extractedStudentSteps: string;
+  confirmedProblemText?: string;
+  confirmedStudentSteps?: string;
+  confirmedFormulaLatex?: string[];
+  studentEdits?: Array<{
+    itemId: string;
+    kind: "problem" | "student_step" | "formula" | "line" | "block";
+    before: string;
+    after: string;
+  }>;
+  ocrAnnotations?: Array<{
+    itemId: string;
+    ocrWasWrong: boolean;
+    actualStepLabel?: string;
+    isFirstWrongStep?: boolean;
+    note?: string;
+  }>;
+  confirmedFirstWrongStep?: string;
+  readyForDiagnosis?: boolean;
   requiresStudentConfirmation: boolean;
   confirmationPrompt: string;
   warnings: string[];
@@ -96,6 +114,7 @@ export type DraftOCRError = {
   error: "draft_ocr_unavailable" | "bad_request";
   message: string;
   status?: number;
+  engineReports?: DraftOCREngineReport[];
 };
 
 export type DraftOCRToolResult = DraftOCRResult | DraftOCRError;

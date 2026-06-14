@@ -4,7 +4,10 @@ type MathThinkingGraphProps = {
   graph: MathThinkingGraphSpec;
 };
 
-const COLUMN_BY_KIND: Record<MathThinkingGraphSpec["nodes"][number]["kind"], number> = {
+const COLUMN_BY_KIND: Record<
+  MathThinkingGraphSpec["nodes"][number]["kind"],
+  number
+> = {
   problem: 0,
   step: 1,
   check: 2,
@@ -70,11 +73,10 @@ export function MathThinkingGraph({ graph }: MathThinkingGraphProps) {
               <path d="M0,0 L8,4 L0,8 Z" fill="currentColor" />
             </marker>
           </defs>
-
           {graph.edges.map((edge, index) => {
             const from = layout.positions.get(edge.from);
             const to = layout.positions.get(edge.to);
-            if (!from || !to) {
+            if (!(from && to)) {
               return null;
             }
             const color = EDGE_STYLE[edge.kind ?? "supports"];
@@ -85,10 +87,7 @@ export function MathThinkingGraph({ graph }: MathThinkingGraphProps) {
             const curve = Math.max(40, (endX - startX) / 2);
 
             return (
-              <g
-                className="text-muted-foreground"
-                key={`${edge.from}-${edge.to}-${index}`}
-              >
+              <g className="text-muted-foreground" key={`${edge.from}-${edge.to}-${index}`}>
                 <path
                   d={`M ${startX} ${startY} C ${startX + curve} ${startY}, ${
                     endX - curve
@@ -113,7 +112,6 @@ export function MathThinkingGraph({ graph }: MathThinkingGraphProps) {
               </g>
             );
           })}
-
           {graph.nodes.map((node) => {
             const position = layout.positions.get(node.id);
             if (!position) {
@@ -189,7 +187,6 @@ function wrapSvgText(text: string, maxChars: number) {
   if (clean.length <= maxChars) {
     return [clean];
   }
-
   const lines: string[] = [];
   for (let index = 0; index < clean.length; index += maxChars) {
     lines.push(clean.slice(index, index + maxChars));

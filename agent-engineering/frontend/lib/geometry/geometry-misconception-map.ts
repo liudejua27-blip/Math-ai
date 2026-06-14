@@ -8,7 +8,7 @@ export const GEOMETRY_ATOMS = {
   },
   A32: {
     label: "投影意识薄弱",
-    description: "线面角、点面距和高没有先找射影或垂足。",
+    description: "线面角、点面距和高没有先找投影或垂足。",
   },
   A33: {
     label: "辅助平面意识薄弱",
@@ -16,7 +16,7 @@ export const GEOMETRY_ATOMS = {
   },
   A34: {
     label: "二面角转化薄弱",
-    description: "没有把二面角转化为垂直于棱的平面角。",
+    description: "没有把二面角转化为垂直于公共棱的平面角。",
   },
   A35: {
     label: "截面想象薄弱",

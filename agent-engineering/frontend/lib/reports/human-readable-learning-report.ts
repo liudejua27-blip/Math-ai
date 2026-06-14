@@ -48,18 +48,20 @@ export function buildHumanReadableLearningReports(
       strengths:
         stableAtoms.length > 0
           ? stableAtoms.map((atom) => `${humanAtomLabel(atom)} 已经趋于稳定。`)
-          : ["已经开始留下解题步骤，后续可以更准确地发现第一处卡点。"],
+          : [
+              "孩子已经开始留下解题步骤，后续可以更准确地发现第一处卡点。",
+            ],
       concerns:
         weakAtoms.length > 0
           ? weakAtoms.map(
               (atom) =>
-                `${humanAtomLabel(atom)} 近期还会反复出现，需要用同类变式巩固。`
+                `${humanAtomLabel(atom)} 近期还会反复出现，需要用同因变式巩固。`
             )
-          : ["暂时没有明显反复问题，建议保持每周复盘节奏。"],
+          : ["暂时没有明显复发问题，建议保持每周复盘节奏。"],
       recommendedActions: plan.map(toParentAction).slice(0, 4),
       recentExamples: recentDiagnoses.map(toHumanDiagnosisExample),
       nextCheckIn:
-        "下次重点看：订正后换一道同类题，是否还能独立完成。",
+        "下次重点看：订正后换一道同类题，孩子是否还能独立完成。",
     },
     teacher: {
       audience: "teacher",
@@ -68,14 +70,16 @@ export function buildHumanReadableLearningReports(
       strengths:
         improvingAtoms.length > 0
           ? improvingAtoms.map((atom) => `${humanAtomLabel(atom)} 正在修复，可继续用追问巩固。`)
-          : ["学生已经具备按步骤提交思路的基础，可进入更细的过程诊断。"],
+          : [
+              "学生已经具备按步骤提交思路的基础，可以进入更细的过程诊断。",
+            ],
       concerns:
         weakAtoms.length > 0
           ? weakAtoms.map(
               (atom) =>
                 `${humanAtomLabel(atom)} 是当前优先干预点，建议用 2-3 道同因变式观察迁移。`
             )
-          : ["暂未发现高频复发点，可提高综合题比例。"],
+          : ["暂未发现高频复发点，可以提高综合题比例。"],
       recommendedActions: plan.map(toTeacherAction).slice(0, 4),
       recentExamples: recentDiagnoses.map(toHumanDiagnosisExample),
       nextCheckIn:
@@ -138,7 +142,7 @@ function buildTeacherSummary({
     .join("、");
   return priority
     ? `最近 ${recentDiagnoses.length} 次诊断显示，优先教学干预点是 ${priority}。`
-    : `最近 ${recentDiagnoses.length} 次诊断未出现稳定复发点，可提高综合题比例。`;
+    : `最近 ${recentDiagnoses.length} 次诊断未出现稳定复发点，可以提高综合题比例。`;
 }
 
 function buildFallbackPlan(atoms: AtomMemoryView[]) {
