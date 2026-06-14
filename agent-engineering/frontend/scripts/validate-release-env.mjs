@@ -1,3 +1,8 @@
+import { existsSync, readFileSync } from "node:fs";
+import { parse } from "dotenv";
+
+loadLocalEnv();
+
 const required = [
   {
     name: "AUTH_SECRET",
@@ -82,6 +87,20 @@ const recommended = [
 const strict =
   process.argv.includes("--strict") ||
   process.env.MATH_SEARAG_RELEASE_ENV_STRICT === "true";
+
+function loadLocalEnv() {
+  for (const file of [".env", ".env.local", ".env.production.local"]) {
+    if (!existsSync(file)) {
+      continue;
+    }
+    const parsed = parse(readFileSync(file));
+    for (const [key, value] of Object.entries(parsed)) {
+      if (process.env[key] === undefined) {
+        process.env[key] = value;
+      }
+    }
+  }
+}
 
 function hasValue(name) {
   const value = process.env[name];

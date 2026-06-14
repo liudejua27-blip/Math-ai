@@ -1,9 +1,27 @@
 import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { parse } from "dotenv";
+
+loadLocalEnv();
 
 const baseUrl = process.env.MATH_SEARAG_BASE_URL ?? "http://localhost:3210";
 const isExternal = /^https?:\/\/(?!127\.0\.0\.1|localhost)/.test(baseUrl);
 
 let server;
+
+function loadLocalEnv() {
+  for (const file of [".env", ".env.local", ".env.production.local"]) {
+    if (!existsSync(file)) {
+      continue;
+    }
+    const parsed = parse(readFileSync(file));
+    for (const [key, value] of Object.entries(parsed)) {
+      if (process.env[key] === undefined) {
+        process.env[key] = value;
+      }
+    }
+  }
+}
 
 async function main() {
   if (!isExternal) {
