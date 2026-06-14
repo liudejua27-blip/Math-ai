@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
+import { isProductionEnvironment } from "@/lib/constants";
 
 const FileSchema = z.object({
   file: z
@@ -24,6 +25,20 @@ export async function POST(request: Request) {
 
   if (request.body === null) {
     return new Response("Request body is empty", { status: 400 });
+  }
+
+  if (
+    isProductionEnvironment &&
+    process.env.MATH_PUBLIC_UPLOADS_ALLOWED !== "true"
+  ) {
+    return NextResponse.json(
+      {
+        error: "public_upload_disabled",
+        message:
+          "生产环境已关闭公开文件上传。草稿纸图片请走 /api/draft-ocr 并存入私有 OSS。",
+      },
+      { status: 403 }
+    );
   }
 
   try {

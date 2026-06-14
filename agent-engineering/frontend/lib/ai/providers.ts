@@ -1,6 +1,28 @@
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { customProvider, gateway } from "ai";
 import { isTestEnvironment } from "../constants";
 import { titleModel } from "./models";
+
+const deepSeekProvider = createOpenAICompatible({
+  baseURL: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com/v1",
+  name: "deepseek",
+  apiKey: process.env.DEEPSEEK_API_KEY,
+});
+
+function shouldUseDeepSeekOfficial(modelId: string) {
+  return (
+    Boolean(process.env.DEEPSEEK_API_KEY?.trim()) &&
+    !modelId.includes("/") &&
+    modelId.startsWith("deepseek-")
+  );
+}
+
+function toGatewayModelId(modelId: string) {
+  if (!modelId.includes("/") && modelId.startsWith("deepseek-")) {
+    return `deepseek/${modelId}`;
+  }
+  return modelId;
+}
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -19,12 +41,19 @@ export function getLanguageModel(modelId: string) {
     return myProvider.languageModel(modelId);
   }
 
-  return gateway.languageModel(modelId);
+  if (shouldUseDeepSeekOfficial(modelId)) {
+    return deepSeekProvider.chatModel(modelId);
+  }
+
+  return gateway.languageModel(toGatewayModelId(modelId));
 }
 
 export function getTitleModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("title-model");
   }
-  return gateway.languageModel(titleModel.id);
+  if (shouldUseDeepSeekOfficial(titleModel.id)) {
+    return deepSeekProvider.chatModel(titleModel.id);
+  }
+  return gateway.languageModel(toGatewayModelId(titleModel.id));
 }

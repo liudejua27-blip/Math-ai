@@ -661,6 +661,214 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
   }
 }
 
+export async function exportUserPrivacyData({ userId }: { userId: string }) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [
+      selectedUsers,
+      profiles,
+      chats,
+      documents,
+      suggestions,
+      diagnoses,
+      runs,
+      ocrSamples,
+    ] = await Promise.all([
+      db
+        .select({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          emailVerified: user.emailVerified,
+          image: user.image,
+          isAnonymous: user.isAnonymous,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        })
+        .from(user)
+        .where(eq(user.id, userId)),
+      db.select().from(studentProfile).where(eq(studentProfile.userId, userId)),
+      db.select().from(chat).where(eq(chat.userId, userId)),
+      db.select().from(document).where(eq(document.userId, userId)),
+      db.select().from(suggestion).where(eq(suggestion.userId, userId)),
+      db
+        .select()
+        .from(diagnosisSession)
+        .where(eq(diagnosisSession.userId, userId)),
+      db.select().from(mathAgentRun).where(eq(mathAgentRun.userId, userId)),
+      db.select().from(draftOCRSample).where(eq(draftOCRSample.userId, userId)),
+    ]);
+
+    const chatIds = chats.map((item) => item.id);
+    const profileIds = profiles.map((item) => item.id);
+    const diagnosisIds = diagnoses.map((item) => item.id);
+
+    const [messages, votes, streams, atoms, remediations, geometry, reports, events] =
+      await Promise.all([
+        chatIds.length
+          ? db.select().from(message).where(inArray(message.chatId, chatIds))
+          : [],
+        chatIds.length
+          ? db.select().from(vote).where(inArray(vote.chatId, chatIds))
+          : [],
+        chatIds.length
+          ? db.select().from(stream).where(inArray(stream.chatId, chatIds))
+          : [],
+        profileIds.length
+          ? db.select().from(atomMemory).where(inArray(atomMemory.studentProfileId, profileIds))
+          : [],
+        profileIds.length
+          ? db
+              .select()
+              .from(remediationRecord)
+              .where(inArray(remediationRecord.studentProfileId, profileIds))
+          : [],
+        profileIds.length
+          ? db
+              .select()
+              .from(geometryAttempt)
+              .where(inArray(geometryAttempt.studentProfileId, profileIds))
+          : [],
+        profileIds.length
+          ? db
+              .select()
+              .from(weeklyLearningReport)
+              .where(inArray(weeklyLearningReport.studentProfileId, profileIds))
+          : [],
+        diagnosisIds.length
+          ? db
+              .select()
+              .from(workbenchEvent)
+              .where(inArray(workbenchEvent.diagnosisSessionId, diagnosisIds))
+          : [],
+      ]);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      user: selectedUsers[0] ?? null,
+      chats,
+      messages,
+      votes,
+      streams,
+      documents,
+      suggestions,
+      learning: {
+        profiles,
+        diagnoses,
+        workbenchEvents: events,
+        atomMemory: atoms,
+        remediationRecords: remediations,
+        geometryAttempts: geometry,
+        weeklyReports: reports,
+        mathAgentRuns: runs,
+        draftOCRSamples: ocrSamples,
+      },
+      storageRefs: collectStoredImageRefs(ocrSamples),
+    };
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to export user privacy data"
+    );
+  }
+}
+
+export async function deleteUserPrivacyData({ userId }: { userId: string }) {
+  if (!databaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const [profiles, chats, diagnoses, ocrSamples] = await Promise.all([
+      db.select({ id: studentProfile.id }).from(studentProfile).where(eq(studentProfile.userId, userId)),
+      db.select({ id: chat.id }).from(chat).where(eq(chat.userId, userId)),
+      db
+        .select({ id: diagnosisSession.id })
+        .from(diagnosisSession)
+        .where(eq(diagnosisSession.userId, userId)),
+      db
+        .select()
+        .from(draftOCRSample)
+        .where(eq(draftOCRSample.userId, userId)),
+    ]);
+
+    const profileIds = profiles.map((item) => item.id);
+    const chatIds = chats.map((item) => item.id);
+    const diagnosisIds = diagnoses.map((item) => item.id);
+    const storageRefs = collectStoredImageRefs(ocrSamples);
+
+    if (diagnosisIds.length > 0) {
+      await db
+        .delete(workbenchEvent)
+        .where(inArray(workbenchEvent.diagnosisSessionId, diagnosisIds));
+    }
+
+    if (profileIds.length > 0) {
+      await db
+        .delete(geometryAttempt)
+        .where(inArray(geometryAttempt.studentProfileId, profileIds));
+      await db
+        .delete(remediationRecord)
+        .where(inArray(remediationRecord.studentProfileId, profileIds));
+      await db
+        .delete(weeklyLearningReport)
+        .where(inArray(weeklyLearningReport.studentProfileId, profileIds));
+      await db
+        .delete(atomMemory)
+        .where(inArray(atomMemory.studentProfileId, profileIds));
+    }
+
+    await db.delete(draftOCRSample).where(eq(draftOCRSample.userId, userId));
+
+    if (diagnosisIds.length > 0) {
+      await db
+        .delete(diagnosisSession)
+        .where(inArray(diagnosisSession.id, diagnosisIds));
+    }
+
+    await db.delete(mathAgentRun).where(eq(mathAgentRun.userId, userId));
+    await db.delete(suggestion).where(eq(suggestion.userId, userId));
+    await db.delete(document).where(eq(document.userId, userId));
+
+    if (chatIds.length > 0) {
+      await db.delete(vote).where(inArray(vote.chatId, chatIds));
+      await db.delete(message).where(inArray(message.chatId, chatIds));
+      await db.delete(stream).where(inArray(stream.chatId, chatIds));
+      await db.delete(chat).where(eq(chat.userId, userId));
+    }
+
+    if (profileIds.length > 0) {
+      await db.delete(studentProfile).where(eq(studentProfile.userId, userId));
+    }
+
+    await db.delete(user).where(eq(user.id, userId));
+
+    return {
+      deletedAt: new Date().toISOString(),
+      deleted: {
+        chats: chatIds.length,
+        diagnosisSessions: diagnosisIds.length,
+        studentProfiles: profileIds.length,
+        draftOCRSamples: ocrSamples.length,
+      },
+      storageRefs,
+      storageDeletion: {
+        status: storageRefs.length > 0 ? "pending_external_oss_delete" : "not_required",
+        reason:
+          "Database records are deleted here. Configure the Aliyun OSS deletion worker to purge these private objects.",
+      },
+    };
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to delete user privacy data"
+    );
+  }
+}
+
 export async function saveMathDiagnosisSession({
   userId,
   chatId,
@@ -1972,6 +2180,28 @@ function collectDraftOCRRawCropRefs(result: DraftOCRResult) {
   }
 
   return refs;
+}
+
+function collectStoredImageRefs(samples: Array<typeof draftOCRSample.$inferSelect>) {
+  const refs = new Set<string>();
+
+  for (const sample of samples) {
+    if (sample.sourceImageUrl) {
+      refs.add(sample.sourceImageUrl);
+    }
+
+    const rawCropRefs = Array.isArray(sample.rawCropRefsJson)
+      ? sample.rawCropRefsJson
+      : [];
+    for (const item of rawCropRefs) {
+      const rawImageCrop = getRecordValue(item, "rawImageCrop");
+      if (typeof rawImageCrop === "string" && rawImageCrop.trim()) {
+        refs.add(rawImageCrop);
+      }
+    }
+  }
+
+  return Array.from(refs);
 }
 
 function buildDraftOCREditSummary({

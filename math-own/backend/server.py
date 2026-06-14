@@ -27,8 +27,16 @@ class MathCoachHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed_url = urlparse(self.path)
-        if parsed_url.path == "/api/health":
-            self.write_json({"ok": True, "service": "math-coach-backend", "version": "0.3", "strict_mode": True})
+        if parsed_url.path in {"/health", "/api/health"}:
+            self.write_json(
+                {
+                    "ok": True,
+                    "service": "math-coach-backend",
+                    "version": "0.4",
+                    "strict_mode": True,
+                    "endpoints": ["/health", "/ocr/draft", "/verify/math"],
+                }
+            )
             return
         if parsed_url.path == "/api/capabilities":
             self.write_json(list_capabilities())
@@ -45,13 +53,13 @@ class MathCoachHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed_url = urlparse(self.path)
-        if parsed_url.path == "/api/analyze":
+        if parsed_url.path in {"/api/analyze", "/verify/math"}:
             payload = self.read_json()
             result = analyze_problem(payload)
             REPORT_STORE[result["job_id"]] = result["report"]
             self.write_json(result)
             return
-        if parsed_url.path == "/api/draft-ocr":
+        if parsed_url.path in {"/api/draft-ocr", "/ocr/draft"}:
             payload = self.read_json()
             result = recognize_draft(payload)
             status = 400 if result.get("error") == "bad_request" else 200

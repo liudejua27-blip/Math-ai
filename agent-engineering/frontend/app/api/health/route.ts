@@ -3,13 +3,22 @@ import { NextResponse } from "next/server";
 const startedAt = new Date().toISOString();
 const requiredConfig = [
   "AUTH_SECRET",
-  "AI_GATEWAY_API_KEY",
+  "DEEPSEEK_API_KEY",
   "POSTGRES_URL",
   "REDIS_URL",
 ] as const;
 
 function hasValue(name: (typeof requiredConfig)[number]) {
   return Boolean(process.env[name]?.trim());
+}
+
+function aliyunOssConfigured() {
+  return Boolean(
+    process.env.ALI_OSS_REGION?.trim() &&
+      process.env.ALI_OSS_BUCKET?.trim() &&
+      process.env.ALI_OSS_ACCESS_KEY_ID?.trim() &&
+      process.env.ALI_OSS_ACCESS_KEY_SECRET?.trim()
+  );
 }
 
 export function GET() {
@@ -27,6 +36,7 @@ export function GET() {
     environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "unknown",
     checks: {
       authSecretConfigured: Boolean(process.env.AUTH_SECRET),
+      deepSeekConfigured: Boolean(process.env.DEEPSEEK_API_KEY),
       aiGatewayConfigured: Boolean(process.env.AI_GATEWAY_API_KEY),
       postgresConfigured: Boolean(process.env.POSTGRES_URL),
       redisConfigured: Boolean(process.env.REDIS_URL),
@@ -39,8 +49,8 @@ export function GET() {
       minimumConfigReady: missingRequired.length === 0,
       missingRequired,
       warnings: [
-        ...(!process.env.BLOB_READ_WRITE_TOKEN
-          ? ["BLOB_READ_WRITE_TOKEN is recommended for persisted artifacts"]
+        ...(!process.env.BLOB_READ_WRITE_TOKEN && !aliyunOssConfigured()
+          ? ["ALI_OSS_* or BLOB_READ_WRITE_TOKEN is recommended for persisted artifacts"]
           : []),
         ...(pythonVerifierRequired && !pythonVerifierEnabled
           ? ["MATH_REQUIRE_PYTHON_VERIFIER=true but verifier is disabled"]

@@ -15,6 +15,11 @@ async function main() {
 
   try {
     await assertHealth(baseUrl);
+    if (isExternal || process.env.MATH_RELEASE_READINESS_STRICT === "true") {
+      await assertReadiness(baseUrl);
+    } else {
+      console.log("[release-smoke] skipped readiness smoke for local dev server");
+    }
     await assertPage(browser, `${baseUrl}/workbench-preview`, {
       name: "workbench-preview-desktop",
       viewport: { width: 1440, height: 900 },
@@ -83,6 +88,15 @@ async function assertHealth(url) {
     throw new Error(`Unexpected health payload: ${JSON.stringify(body)}`);
   }
   console.log(`[release-smoke] health ok at ${url}/api/health`);
+}
+
+async function assertReadiness(url) {
+  const response = await fetch(`${url}/api/readiness`, { cache: "no-store" });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body.ok !== true) {
+    throw new Error(`Readiness check failed: ${JSON.stringify(body)}`);
+  }
+  console.log(`[release-smoke] readiness ok at ${url}/api/readiness`);
 }
 
 async function assertPage(browser, url, options) {

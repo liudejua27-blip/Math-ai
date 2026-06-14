@@ -4,8 +4,8 @@ const required = [
     reason: "protects NextAuth sessions and signed auth cookies",
   },
   {
-    name: "AI_GATEWAY_API_KEY",
-    reason: "enables model access through Vercel AI Gateway outside Vercel OIDC",
+    name: "DEEPSEEK_API_KEY",
+    reason: "enables direct access to the official DeepSeek API for China production",
   },
   {
     name: "POSTGRES_URL",
@@ -15,16 +15,32 @@ const required = [
     name: "REDIS_URL",
     reason: "supports resumable streams and runtime state",
   },
+  {
+    name: "MATH_AGENT_BACKEND_URL",
+    reason: "connects the TypeScript workflow to the Python OCR and verifier service",
+  },
+  {
+    name: "ALI_OSS_REGION",
+    reason: "stores draft images and OCR crops in a private Aliyun OSS bucket",
+  },
+  {
+    name: "ALI_OSS_BUCKET",
+    reason: "stores draft images and OCR crops in a private Aliyun OSS bucket",
+  },
+  {
+    name: "ALI_OSS_ACCESS_KEY_ID",
+    reason: "allows the production storage worker to access private OSS objects",
+  },
+  {
+    name: "ALI_OSS_ACCESS_KEY_SECRET",
+    reason: "allows the production storage worker to access private OSS objects",
+  },
 ];
 
 const recommended = [
   {
-    name: "BLOB_READ_WRITE_TOKEN",
-    reason: "stores generated artifacts and student-uploaded assets",
-  },
-  {
-    name: "MATH_AGENT_BACKEND_URL",
-    reason: "connects the TypeScript workflow to the Python verifier and draft OCR service",
+    name: "AI_GATEWAY_API_KEY",
+    reason: "keeps Vercel AI Gateway available as an international staging fallback",
   },
   {
     name: "MATH_REQUIRE_DRAFT_OCR",
@@ -39,12 +55,12 @@ const recommended = [
   {
     name: "MATH_DIAGNOSIS_MODEL",
     reason: "pins the default fast diagnosis model",
-    expected: "deepseek/deepseek-v4-flash",
+    expected: "deepseek-v4-flash",
   },
   {
     name: "MATH_REVIEW_MODEL",
     reason: "pins the high-confidence review model",
-    expected: "deepseek/deepseek-v4-pro",
+    expected: "deepseek-v4-pro",
   },
   {
     name: "MATH_TEACHING_STYLE",
@@ -55,6 +71,11 @@ const recommended = [
     name: "MATH_VISUAL_MODE",
     reason: "keeps generated explanations on the safe HTML card protocol",
     expected: "html_card",
+  },
+  {
+    name: "MATH_READINESS_DEEPSEEK_LIVE",
+    reason: "enables live DeepSeek /models readiness checks in staging",
+    expected: "true",
   },
 ];
 

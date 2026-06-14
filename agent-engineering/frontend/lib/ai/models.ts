@@ -1,11 +1,11 @@
-export const DEFAULT_CHAT_MODEL = "deepseek/deepseek-v4-flash";
+export const DEFAULT_CHAT_MODEL = "deepseek-v4-flash";
 
 export const titleModel = {
-  id: "moonshotai/kimi-k2.5",
-  name: "Kimi K2.5",
-  provider: "moonshotai",
+  id: "deepseek-v4-flash",
+  name: "DeepSeek V4 Flash",
+  provider: "deepseek-official",
   description: "Fast model for title generation",
-  gatewayOrder: ["fireworks", "bedrock"],
+  gatewayOrder: undefined as string[] | undefined,
 };
 
 export type ModelCapabilities = {
@@ -25,18 +25,32 @@ export type ChatModel = {
 
 export const chatModels: ChatModel[] = [
   {
-    id: "deepseek/deepseek-v4-flash",
+    id: "deepseek-v4-flash",
     name: "DeepSeek V4 Flash",
-    provider: "deepseek",
+    provider: "deepseek-official",
     description: "Default thinking-coach model for fast Socratic diagnosis",
+    reasoningEffort: "low",
+  },
+  {
+    id: "deepseek-v4-pro",
+    name: "DeepSeek V4 Pro",
+    provider: "deepseek-official",
+    description: "Review model for harder high-school math diagnosis",
+    reasoningEffort: "medium",
+  },
+  {
+    id: "deepseek/deepseek-v4-flash",
+    name: "DeepSeek V4 Flash via AI Gateway",
+    provider: "deepseek",
+    description: "Vercel AI Gateway fallback for international staging",
     gatewayOrder: ["deepseek"],
     reasoningEffort: "low",
   },
   {
     id: "deepseek/deepseek-v4-pro",
-    name: "DeepSeek V4 Pro",
+    name: "DeepSeek V4 Pro via AI Gateway",
     provider: "deepseek",
-    description: "Review model for harder high-school math diagnosis",
+    description: "Vercel AI Gateway review fallback",
     gatewayOrder: ["deepseek"],
     reasoningEffort: "medium",
   },
@@ -84,6 +98,17 @@ export async function getCapabilities(): Promise<
 > {
   const results = await Promise.all(
     chatModels.map(async (model) => {
+      if (model.provider === "deepseek-official") {
+        return [
+          model.id,
+          {
+            tools: true,
+            vision: false,
+            reasoning: model.id.includes("pro"),
+          },
+        ];
+      }
+
       try {
         const res = await fetch(
           `https://ai-gateway.vercel.sh/v1/models/${model.id}/endpoints`,
